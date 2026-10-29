@@ -200,7 +200,17 @@ enum class NoticeStyle {
     SENT,
     /** Новая версия: значок приложения, что нового и кнопки «Позже» и «Обновить»; после установки — «Обновлено» */
     UPDATE,
+    /** Биометрия: Apple Face ID / Touch ID сканирование и подтверждение */
+    BIOMETRIC,
 }
+
+enum class BiometricStatus { SCANNING, SUCCESS, ERROR }
+
+data class BiometricInfo(
+    val status: BiometricStatus = BiometricStatus.SCANNING,
+    val isFace: Boolean = true,
+    val appName: String? = null,
+)
 
 /** На экране — оплата телефоном: в каком приложении и его значок. Держится, пока не заплатили или не ушли. */
 data class PayReady(val pkg: String, val icon: ImageBitmap?)
@@ -290,6 +300,8 @@ data class Notice(
     val alarm: AlarmInfo? = null,
     /** Новая версия для плашки NoticeStyle.UPDATE; null — уже обновились */
     val update: com.akira.island.update.Release? = null,
+    /** Данные биометрии для плашки NoticeStyle.BIOMETRIC */
+    val biometric: BiometricInfo? = null,
     val id: Long = ids.incrementAndGet(),
 ) {
     private companion object {

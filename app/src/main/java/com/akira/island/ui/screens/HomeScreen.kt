@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Nfc
@@ -79,6 +80,8 @@ import com.akira.island.core.Tints
 import com.akira.island.core.tr
 import com.akira.island.core.trf
 import com.akira.island.data.SettingsRepo
+import com.akira.island.data.BiometricMode
+import com.akira.island.service.BiometricMonitor
 import com.akira.island.island.Act
 import com.akira.island.island.CompactContent
 import com.akira.island.island.IslandTheme
@@ -392,6 +395,12 @@ private fun demos(context: Context): List<Demo> = listOf(
     Demo(Icons.Rounded.NotificationsOff, tr("Режим звука", "Ring mode"),
         tr("Капсула вздрагивает, колокольчик качается", "The capsule shakes, the bell swings"), Tile.Red) {
         IslandBus.post(Notice("", tr("Без звука", "Silent"), Ios.load(context, R.drawable.ios_notifications_off), Tints.Red, style = NoticeStyle.PILL))
+    },
+    Demo(Icons.Rounded.Fingerprint, tr("Биометрия Apple", "Apple Biometrics"),
+        tr("Face ID или Touch ID: сканирование и галочка", "Face ID or Touch ID: scan and checkmark"), Tile.Teal) {
+        val s = SettingsRepo.current
+        val isFace = s.biometricMode != BiometricMode.FINGERPRINT
+        BiometricMonitor.demo(context, isFace)
     },
     Demo(Icons.Rounded.ChatBubble, tr("Сообщение", "Message"),
         tr("С кнопками «Ответить» и «Пометить прочитанным»", "With Reply and Mark as read buttons"), Tile.Blue) {

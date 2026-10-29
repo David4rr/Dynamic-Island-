@@ -357,6 +357,7 @@ private fun MediaCompact(m: MediaInfo, s: IslandSettings) {
 @Composable
 private fun NoticeCompact(n: Notice, s: IslandSettings, wideWidth: Dp) {
     when {
+        n.style == NoticeStyle.BIOMETRIC -> BiometricNotice(n, s, wideWidth)
         n.style == NoticeStyle.MESSAGE && n.message != null && s.messageStyle == MessageStyle.PILL -> MessagePill(n, n.message, s)
         n.style == NoticeStyle.MESSAGE && n.message != null -> MessageCard(n, n.message, s, wideWidth)
         n.style == NoticeStyle.PAY_DONE -> PayDone(n, s, wideWidth)

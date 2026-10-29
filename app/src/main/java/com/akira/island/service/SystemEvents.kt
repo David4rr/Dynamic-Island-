@@ -306,7 +306,11 @@ class SystemEvents(private val context: Context) {
         val now = SystemClock.elapsedRealtime()
         if (now - lastUnlock < 3_000) return
         lastUnlock = now
-        notice(s.evUnlock, Notice("", null, ic(R.drawable.ios_lock_open), Color.White, style = NoticeStyle.PILL))
+        if (s.evBiometric) {
+            BiometricMonitor.onUnlockBiometric(context)
+        } else if (s.evUnlock) {
+            notice(s.evUnlock, Notice("", null, ic(R.drawable.ios_lock_open), Color.White, style = NoticeStyle.PILL))
+        }
     }
 
     /** Заблокирован ли телефон так, что для входа нужен PIN-код, ключ или пароль. */

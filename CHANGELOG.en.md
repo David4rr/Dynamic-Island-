@@ -6,6 +6,14 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.1] — 2026-10-29
+
+### 🍏 Apple-Style Biometric Authentication
+- 👤 **Apple Face ID & Touch ID Animations**: Fluid iOS Dynamic Island biometric verification with animated laser sweep viewfinder and fingerprint pulse glyphs morphing into green checkmark badges.
+- ⚙️ **Customizable Settings**: Toggle biometric events on/off (`evBiometric`) and choose preferred style (Auto, Face ID, or Touch ID) under Events → Other.
+- 🔍 **In-App Prompt Detection**: Automatically intercepts system `BiometricPrompt` dialogs when unlocking apps or authenticating payments.
+- 🧪 **Interactive Demo**: Test the Apple Biometric animation instantly from the Home tab under Test.
+
 ## [1.7.0] — 2026-10-28
 
 ### 🎛️ More settings — as you asked

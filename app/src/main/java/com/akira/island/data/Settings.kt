@@ -43,6 +43,16 @@ enum class Elasticity(private val ru: String, private val en: String, val dampin
 
     val title: String get() = tr(ru, en)
 }
+@Serializable
+enum class BiometricMode(private val ru: String, private val en: String) {
+    AUTO("Как на устройстве", "Auto (Device default)"),
+    FACE("Apple Face ID", "Apple Face ID"),
+    FINGERPRINT("Apple Touch ID", "Apple Touch ID"),
+    ;
+
+    val title: String get() = tr(ru, en)
+}
+
 
 @Serializable
 enum class TapAction(private val ru: String, private val en: String) {
@@ -210,6 +220,9 @@ data class IslandSettings(
     val evUsbOn: Boolean = true,
     val evUsbOff: Boolean = true,
     val evUnlock: Boolean = false,
+    /** Анимация биометрии (Face ID / Touch ID) при разблокировке и в приложениях */
+    val evBiometric: Boolean = true,
+    val biometricMode: BiometricMode = BiometricMode.AUTO,
     /** На экране блокировки в капсуле замок; после разблокировки он уходит */
     val evLock: Boolean = true,
     val evDnd: Boolean = true,

@@ -11,6 +11,8 @@ import androidx.compose.material.icons.rounded.BluetoothDisabled
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Face
+import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
@@ -24,6 +26,12 @@ import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.akira.island.data.BiometricMode
+import com.akira.island.ui.ChoiceDialog
+import com.akira.island.ui.GroupItem
 import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
 import com.akira.island.data.SettingsRepo
@@ -38,6 +46,7 @@ import com.akira.island.ui.Tile
 @Composable
 fun EventsScreen(onBack: () -> Unit) {
     val s by SettingsRepo.state.collectAsState()
+    var biometricDialog by remember { mutableStateOf(false) }
     fun set(block: IslandSettings.() -> IslandSettings) = SettingsRepo.update(block)
 
     Page(tr("События", "Events"), onBack) {
@@ -107,12 +116,23 @@ fun EventsScreen(onBack: () -> Unit) {
             GroupToggle(Pos.First, Icons.Rounded.Alarm, tr("Будильник поставлен", "Alarm set"),
                 tr("Время подъёма и сколько осталось спать", "Wake-up time and how long you can sleep"),
                 s.evAlarmSet, color = Tile.Orange) { set { copy(evAlarmSet = it) } }
+            GroupToggle(Pos.Middle, Icons.Rounded.Fingerprint, tr("Биометрия Apple", "Apple Biometrics"),
+                tr("Анимация Face ID или Touch ID при проверке и разблокировке", "Face ID or Touch ID animation during verification and unlock"),
+                s.evBiometric, color = Tile.Teal) { set { copy(evBiometric = it) } }
+            if (s.evBiometric) {
+                GroupItem(Pos.Middle, Icons.Rounded.Face, tr("Стиль биометрии", "Biometric style"), s.biometricMode.title,
+                    color = Tile.Teal) { biometricDialog = true }
+            }
             GroupToggle(Pos.Middle, Icons.Rounded.Lock, tr("Замок на экране блокировки", "Lock on the lock screen"),
                 tr("Пока телефон заблокирован, в капсуле замок", "While the phone is locked, the capsule shows a lock"),
                 s.evLock, color = Tile.Indigo) { set { copy(evLock = it) } }
             GroupToggle(Pos.Last, Icons.Rounded.LockOpen, tr("Разблокировка устройства", "Device unlock"),
                 tr("Замок открывается, когда вы разблокируете телефон", "A lock opens when you unlock the phone"),
                 s.evUnlock, color = Tile.Purple) { set { copy(evUnlock = it) } }
+        }
+        if (biometricDialog) {
+            ChoiceDialog(tr("Стиль биометрии", "Biometric style"), BiometricMode.entries, s.biometricMode, { it.title },
+                { v -> SettingsRepo.update { copy(biometricMode = v) } }) { biometricDialog = false }
         }
     }
 }

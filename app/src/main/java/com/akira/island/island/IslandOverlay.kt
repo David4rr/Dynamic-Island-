@@ -463,7 +463,7 @@ private fun IslandBody(
         primary is Act.NoticeA && (primary.n.style == NoticeStyle.MESSAGE || primary.n.style == NoticeStyle.EGG) -> 32.dp
         primary is Act.NoticeA && primary.n.style == NoticeStyle.UPDATE -> 36.dp
         primary is Act.NoticeA && primary.n.style == NoticeStyle.WIDE && primary.n.title.isNotBlank() -> noticeHeight(s) / 2
-        primary is Act.NoticeA && (primary.n.style == NoticeStyle.PAY_DONE ||
+        primary is Act.NoticeA && (primary.n.style == NoticeStyle.PAY_DONE || primary.n.style == NoticeStyle.BIOMETRIC ||
             primary.n.style == NoticeStyle.LIVE || primary.n.style == NoticeStyle.ALARM || primary.n.style == NoticeStyle.SENT) -> noticeHeight(s) / 2
         primary is Act.PayA -> noticeHeight(s) / 2
         primary is Act.CallA && primary.c.incoming -> callHeight(s) / 2

@@ -586,5 +586,15 @@
 "{0}. Also the glowing dot of the flashlight and navigation": "{0}. Сондай-ақ шам мен навигацияның жарқыраған нүктесі",
 "“Battery low” — the Battery channel. Some firmwares don't let you change it": "«Батарея заряды аз» — Батарея арнасы. Кейбір жүйелер оны өзгертуге рұқсат бермейді",
 "“Paid” on screen, but amounts: {0}": "Экранда «Төленді», бірақ сомалар саны: {0}",
-"“Set a timer for 5 minutes” from an assistant or widget can go to the island": "Көмекшіден не виджеттен «5 минутқа таймер қой» аралға келуі мүмкін"
+"“Set a timer for 5 minutes” from an assistant or widget can go to the island": "Көмекшіден не виджеттен «5 минутқа таймер қой» аралға келуі мүмкін",
+"Apple Biometrics": "Apple биометриясы",
+"Face ID or Touch ID animation during verification and unlock": "Тексеру және құлыпты ашу кезіндегі Face ID немесе Touch ID анимациясы",
+"Biometric style": "Биометрия стилі",
+"Auto (Device default)": "Авто (Құрылғы бойынша)",
+"Face ID or Touch ID: scan and checkmark": "Face ID немесе Touch ID: сканерлеу және белгіше",
+"Scanning...": "Сканерлеуде...",
+"Verified": "Расталды",
+"Try again": "Қайталап көріңіз",
+"Scan": "Сканерлеу",
+"Unlocked": "Құлып ашылды"
 }

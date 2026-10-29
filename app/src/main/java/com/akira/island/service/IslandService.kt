@@ -601,6 +601,7 @@ class IslandService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         // Шторка, клавиатура и сам остров не меняют «открытое приложение»
         val cls = event.className?.toString().orEmpty()
+        BiometricMonitor.onWindowState(event, this)
         if (pkg == "com.android.systemui" || isKeyboard(pkg, cls)) return
         // Окно оплаты из сервисов Google (поднесли телефон к терминалу) — не «открытое приложение»
         if (pkg == PayMonitor.GMS && "tapandpay" in cls.lowercase()) {

@@ -601,5 +601,15 @@
 "Hide App Notification Icons": "Sembunyikan Ikon Notifikasi Aplikasi",
 "Hides app notification icons on the left of the status bar, keeping clock, battery, and network icons visible.": "Menyembunyikan ikon notifikasi aplikasi di sebelah kiri status bar, membiarkan jam, baterai, dan sinyal tetap terlihat.",
 "Copy ADB Command": "Salin Perintah ADB",
-"Or configure apps manually: tap an app below and turn off “Pop on screen”. The notification stays in the shade, and only the island shows the event on screen.": "Atau atur aplikasi secara manual: ketuk aplikasi di bawah dan matikan \"Tampilkan di layar\". Notifikasi tetap ada di laci, dan hanya pulau yang menampilkannya di layar."
+"Or configure apps manually: tap an app below and turn off “Pop on screen”. The notification stays in the shade, and only the island shows the event on screen.": "Atau atur aplikasi secara manual: ketuk aplikasi di bawah dan matikan \"Tampilkan di layar\". Notifikasi tetap ada di laci, dan hanya pulau yang menampilkannya di layar.",
+"Apple Biometrics": "Biometrik Apple",
+"Face ID or Touch ID animation during verification and unlock": "Animasi Face ID atau Touch ID saat verifikasi dan buka kunci",
+"Biometric style": "Gaya biometrik",
+"Auto (Device default)": "Otomatis (Bawaan perangkat)",
+"Face ID or Touch ID: scan and checkmark": "Face ID atau Touch ID: pemindaian dan tanda centang",
+"Scanning...": "Memindai...",
+"Verified": "Terverifikasi",
+"Try again": "Coba lagi",
+"Scan": "Pindai",
+"Unlocked": "Terbuka"
 }
