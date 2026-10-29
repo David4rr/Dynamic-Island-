@@ -6,6 +6,15 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.4] — 2026-10-29
+
+### 🚀 Notification & Biometric Refinements
+- 📬 **Multi-Notification Burst Handling**: Expanded notification queue capacity to 64 and added smart adaptive cycling so multiple rapid notifications from WhatsApp and other apps appear fluidly without drops or 8-second freezing.
+- 💬 **WhatsApp 1-on-1 Messages Fix**: Resolved a bug where incoming private direct WhatsApp messages were falsely classified as self-authored messages and omitted.
+- 🔔 **Consecutive Messenger Alerts**: Ensured rapid consecutive messages from WhatsApp and Telegram aren't discarded as silent notifications by Android's ranking manager.
+- 🛡️ **Consistent Biometric Styling**: Redesigned `BiometricNotice` to use single-line `FitText` typography and padding perfectly aligned with `PayDone` and `WideNotice` standards.
+- ⚡ **Reliable App Lock Detection**: Added asynchronous content change inspection (`TYPE_WINDOW_CONTENT_CHANGED`) and zero-latency direct state dispatch for instantaneous Face ID and Touch ID animations.
+
 ## [1.7.3] — 2026-10-29
 
 ### 🍏 WhatsApp & In-App Lock Biometric Support

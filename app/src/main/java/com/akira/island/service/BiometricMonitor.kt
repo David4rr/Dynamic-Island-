@@ -39,7 +39,7 @@ object BiometricMonitor {
     private var promptPkg: String? = null
     private var promptCls: String? = null
     private var promptStartTime = 0L
-    private var isFaceActive = true
+    private var isFaceActive = false
     private var lastSuccessTime = 0L
     private var lastUnlockTime = 0L
 
@@ -73,6 +73,8 @@ object BiometricMonitor {
         "sidik jari", "biometrik", "verifikasi identitas", "whatsapp dikunci",
         "whatsapp locked", "buka kunci", "kunci aplikasi", "отпечаток", "биометр",
         "confirm your fingerprint", "verify your identity", "touch the fingerprint sensor",
+        "buka kunci dengan sidik jari", "pindai sidik jari", "sensor sidik jari",
+        "kunci wa", "verifikasi sidik jari",
     )
 
     fun isSystemPackage(pkg: String): Boolean = pkg in SYSTEM_SECURITY_PKGS
@@ -188,13 +190,38 @@ object BiometricMonitor {
         }
     }
 
+    fun onContentChanged(event: AccessibilityEvent, context: Context) {
+        val s = SettingsRepo.current
+        if (!s.enabled || !s.evBiometric || activePrompt) return
+        val pkg = event.packageName?.toString().orEmpty()
+        val cls = event.className?.toString().orEmpty()
+        if (pkg.isBlank() || isLauncher(context, pkg)) return
+
+        if (isBiometricEvent(pkg, cls, event)) {
+            activePrompt = true
+            promptStartTime = SystemClock.elapsedRealtime()
+            promptPkg = if (isSystemPackage(pkg)) (IslandBus.foregroundPackage.value ?: pkg) else pkg
+            promptCls = cls
+
+            val mode = s.biometricMode
+            val textLower = (event.text.joinToString(" ") + " " + cls).lowercase()
+            isFaceActive = when (mode) {
+                BiometricMode.FACE -> true
+                BiometricMode.FINGERPRINT -> false
+                BiometricMode.AUTO -> "face" in textLower || "wajah" in textLower || "muka" in textLower
+            }
+
+            val appName = promptPkg?.let { getAppName(context, it) }
+            showScanning(context, isFaceActive, appName)
+        }
+    }
+
     fun onWindowsChanged(context: Context) {
         if (!activePrompt) return
         val elapsed = SystemClock.elapsedRealtime() - promptStartTime
         if (elapsed > 350) {
             val fg = IslandBus.foregroundPackage.value
             if (fg != null && fg == promptPkg && !isLauncher(context, fg)) {
-                // Jendela biometric ditutup dan aplikasi kembali aktif
                 activePrompt = false
                 val appName = promptPkg?.let { getAppName(context, it) }
                 showSuccess(context, isFaceActive, appName)
@@ -216,54 +243,54 @@ object BiometricMonitor {
 
     fun showScanning(context: Context, isFace: Boolean, appName: String?) {
         biometricJob?.cancel()
-        val title = if (isFace) "Face ID" else "Touch ID"
+        val title = appName ?: if (isFace) "Face ID" else "Touch ID"
         val state = tr("Сканирование...", "Scanning...")
-        IslandBus.post(
-            Notice(
-                title = title,
-                state = state,
-                caption = appName,
-                icon = Ios.load(context, R.drawable.ios_lock_closed),
-                tint = Tints.Teal,
-                style = NoticeStyle.BIOMETRIC,
-                biometric = BiometricInfo(
-                    status = BiometricStatus.SCANNING,
-                    isFace = isFace,
-                    appName = appName,
-                ),
-                extraMs = 7_000L,
+        val notice = Notice(
+            title = title,
+            state = state,
+            caption = appName,
+            icon = Ios.load(context, R.drawable.ios_lock_closed),
+            tint = Tints.Teal,
+            style = NoticeStyle.BIOMETRIC,
+            biometric = BiometricInfo(
+                status = BiometricStatus.SCANNING,
+                isFace = isFace,
+                appName = appName,
             ),
+            extraMs = 8_000L,
         )
+        // Pembaruan nilai langsung untuk responsivitas instan tanpa antrean
+        IslandBus.notice.value = notice
     }
 
     fun showSuccess(context: Context, isFace: Boolean, appName: String?) {
         val now = SystemClock.elapsedRealtime()
-        if (now - lastSuccessTime < 1_500) return
+        if (now - lastSuccessTime < 1_200) return
         lastSuccessTime = now
 
         biometricJob?.cancel()
+        val title = appName ?: if (isFace) "Face ID" else "Touch ID"
+        val verified = tr("Успешно", "Verified")
+        val successNotice = Notice(
+            title = title,
+            state = verified,
+            caption = appName,
+            icon = Ios.load(context, R.drawable.ios_checkmark_circle),
+            tint = Tints.Green,
+            style = NoticeStyle.BIOMETRIC,
+            biometric = BiometricInfo(
+                status = BiometricStatus.SUCCESS,
+                isFace = isFace,
+                appName = appName,
+            ),
+            extraMs = 1_500L,
+        )
+        IslandBus.notice.value = successNotice
         biometricJob = scope.launch {
-            // Hilangkan notice scanning seketika agar notice sukses langsung muncul
-            IslandBus.notice.value = null
-            delay(35)
-            val title = if (isFace) "Face ID" else "Touch ID"
-            val verified = tr("Успешно", "Verified")
-            IslandBus.post(
-                Notice(
-                    title = title,
-                    state = verified,
-                    caption = appName,
-                    icon = Ios.load(context, R.drawable.ios_checkmark_circle),
-                    tint = Tints.Green,
-                    style = NoticeStyle.BIOMETRIC,
-                    biometric = BiometricInfo(
-                        status = BiometricStatus.SUCCESS,
-                        isFace = isFace,
-                        appName = appName,
-                    ),
-                    extraMs = 200L,
-                ),
-            )
+            delay(1600)
+            if (IslandBus.notice.value?.id == successNotice.id) {
+                IslandBus.notice.value = null
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.akira.island.core
 
+import android.os.SystemClock
 import com.akira.island.data.SettingsRepo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -87,23 +88,37 @@ object IslandBus {
     @Volatile
     var lastTouch = 0L
 
-    private val queue = Channel<Notice>(capacity = 6, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val queue = Channel<Notice>(capacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     init {
         scope.launch {
             for (n in queue) {
                 val s = SettingsRepo.current
-                // «Задержка появления»; подтверждения того, что вы только что сделали (отправлено, оплачено), — сразу
-                if (s.noticeDelayMs > 0 && n.style != NoticeStyle.SENT && n.style != NoticeStyle.PAY_DONE) delay(s.noticeDelayMs.toLong())
+                // «Задержка появления»; подтверждения того, что вы только что сделали (отправлено, оплачено, биометрия), — сразу
+                if (s.noticeDelayMs > 0 && n.style != NoticeStyle.SENT && n.style != NoticeStyle.PAY_DONE && n.style != NoticeStyle.BIOMETRIC) {
+                    delay(s.noticeDelayMs.toLong())
+                }
                 notice.value = n
                 val message = n.style == NoticeStyle.MESSAGE
-                val duration = if (message && s.messageSeconds > 0) s.messageSeconds * 1000L else s.noticeDurationMs + n.extraMs
-                // Уведомление уходит по времени или раньше, если его смахнули кликом
-                withTimeoutOrNull(duration) { notice.first { it?.id != n.id } }
+                val baseDuration = if (message && s.messageSeconds > 0) s.messageSeconds * 1000L else s.noticeDurationMs + n.extraMs
+                // Если в очереди уже ждут другие уведомления, сокращаем показ до 2 с, чтобы не зависать
+                val effectiveDuration = if (!waitingIsEmpty()) minOf(baseDuration, 2_000L) else baseDuration
+
+                val seen = posted.value
+                val start = SystemClock.elapsedRealtime()
+                while (SystemClock.elapsedRealtime() - start < effectiveDuration) {
+                    if (notice.value?.id != n.id) break
+                    // Если пришло новое уведомление и текущее уже показывается >= 1.6 с — уступаем ему место
+                    if (posted.value != seen && SystemClock.elapsedRealtime() - start >= 1_600L && !noticeHold.value) {
+                        break
+                    }
+                    delay(80)
+                }
+
                 // «Пока не смахнёте»: плашка ждёт, пока её не уберут; пришло следующее событие — уступает ему
                 if (message && s.messageSeconds < 0 && notice.value?.id == n.id && waitingIsEmpty()) {
-                    val seen = posted.value
-                    combine(notice, posted) { cur, p -> cur?.id != n.id || p != seen }.first { it }
+                    val seenPosted = posted.value
+                    combine(notice, posted) { cur, p -> cur?.id != n.id || p != seenPosted }.first { it }
                 }
                 // Пока отвечают или листают переписку, карточка остаётся; потом ещё чуть-чуть
                 if (notice.value?.id == n.id && noticeHold.value) {
@@ -112,7 +127,7 @@ object IslandBus {
                 }
                 if (notice.value?.id == n.id) notice.value = null
                 // Короткая пауза между плашками, чтобы они не слипались, — но без заметного ожидания
-                delay(110)
+                delay(90)
             }
         }
     }

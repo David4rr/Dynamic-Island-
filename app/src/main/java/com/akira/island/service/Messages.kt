@@ -85,10 +85,13 @@ object Messages {
         // «Всегда» для приложения). Заглушённые «Не беспокоить» не показываем никогда
         val ranking = NotificationListenerService.Ranking()
         val ranked = runCatching { service.currentRanking?.getRanking(sbn.key, ranking) == true }.getOrDefault(false)
+        val ex = n.extras ?: return
+        val isMessenger = pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" || pkg == "org.telegram.messenger" ||
+            ex.containsKey(Notification.EXTRA_MESSAGES)
         if (ranked) {
             val least = when {
                 rule == AppRule.ALWAYS -> NotificationManager.IMPORTANCE_MIN
-                s.msgQuiet -> NotificationManager.IMPORTANCE_LOW
+                s.msgQuiet || isMessenger -> NotificationManager.IMPORTANCE_LOW
                 else -> NotificationManager.IMPORTANCE_DEFAULT
             }
             if (ranking.importance < least) {
@@ -114,7 +117,7 @@ object Messages {
         val sensitive = Lockscreen.isSecure(service) &&
             (secret || visibility == Notification.VISIBILITY_PRIVATE && !Lockscreen.showsPrivate(service))
 
-        val ex = n.extras ?: return
+
         // Мессенджер дописал в уведомление ваш же ответ — это не новое сообщение
         if (ownLastMessage(ex)) return NotifDebug.add(pkg, tr("Ваше же сообщение", "Your own message"))
         val replied = repliedAt[sbn.key]
@@ -246,8 +249,16 @@ object Messages {
         @Suppress("DEPRECATION")
         val arr: Array<Parcelable> = ex.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return false
         val last = arr.lastOrNull() as? Bundle ?: return false
-        if (!last.containsKey("sender") && !last.containsKey("sender_person") && !last.containsKey("person")) return true
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && sentByMe(last, ex)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val me = runCatching { ex.getParcelable<Person>(Notification.EXTRA_MESSAGING_PERSON) }.getOrNull()
+            if (me != null && sentByMe(last, ex)) return true
+        }
+        val isGroup = ex.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false)
+        // В групповом чате у входящих сообщений обязательно есть отправитель; без отправителя — только наше
+        if (isGroup && !last.containsKey("sender") && !last.containsKey("sender_person") && !last.containsKey("person")) {
+            return true
+        }
+        return false
     }
 
     /** Отправитель сообщения [message] — тот же человек, что EXTRA_MESSAGING_PERSON уведомления. */

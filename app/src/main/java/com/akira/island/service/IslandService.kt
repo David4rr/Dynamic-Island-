@@ -548,6 +548,7 @@ class IslandService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 clockReader?.onContentChanged(event)
                 payReader?.onContentChanged(event)
+                BiometricMonitor.onContentChanged(event, this)
             }
             AccessibilityEvent.TYPE_VIEW_CLICKED -> clockReader?.onClicked(event)
         }

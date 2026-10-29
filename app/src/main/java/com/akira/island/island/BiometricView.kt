@@ -60,13 +60,13 @@ fun BiometricNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
     }
 
     val height = noticeHeight(s)
-    val glyphSize = height * 0.44f
+    val glyphSize = height * 0.42f
 
     Row(
         modifier = Modifier
             .width(wideWidth)
             .height(height)
-            .padding(horizontal = height * 0.28f),
+            .padding(horizontal = height * 0.29f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -83,24 +83,14 @@ fun BiometricNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
                 }
             }
             Spacer(Modifier.width(10.dp))
-            Column(verticalArrangement = Arrangement.Center) {
-                Text(
-                    text = n.title.ifBlank { if (isFace) "Face ID" else "Touch ID" },
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold.island,
-                    maxLines = 1,
-                )
-                if (!info.appName.isNullOrBlank()) {
-                    Text(
-                        text = info.appName,
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal.island,
-                        maxLines = 1,
-                    )
-                }
-            }
+            FitText(
+                text = n.title.ifBlank { if (isFace) "Face ID" else "Touch ID" },
+                color = Color.White,
+                max = 17.sp,
+                min = 13.sp,
+                weight = FontWeight.SemiBold.island,
+                modifier = Modifier.weight(1f, fill = false),
+            )
         }
 
         Spacer(Modifier.width(compactGap(s)))
@@ -116,16 +106,18 @@ fun BiometricNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
                 BiometricStatus.SCANNING -> Tints.Teal
             }
             val statusText = n.state ?: when (info.status) {
-                BiometricStatus.SUCCESS -> if (n.caption.isNullOrBlank()) "Verified" else n.caption
+                BiometricStatus.SUCCESS -> "Verified"
                 BiometricStatus.ERROR -> "Try again"
-                BiometricStatus.SCANNING -> if (isFace) "Face ID" else "Scan"
+                BiometricStatus.SCANNING -> "Scanning..."
             }
-            Text(
+            FitText(
                 text = statusText,
                 color = statusColor,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold.island,
-                maxLines = 1,
+                max = 17.sp,
+                min = 12.sp,
+                weight = FontWeight.SemiBold.island,
+                modifier = Modifier.weight(1f, fill = false),
+                style = Digits,
             )
         }
     }
