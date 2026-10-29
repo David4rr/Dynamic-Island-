@@ -12,13 +12,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,16 +37,17 @@ import com.akira.island.core.BiometricInfo
 import com.akira.island.core.BiometricStatus
 import com.akira.island.core.Notice
 import com.akira.island.core.Tints
+import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
 
 /**
- * Анимация биометрии в стиле Apple (Face ID / Touch ID):
- * - Face ID: видоискатель с лицом и вертикальным лазерным лучom сканирования.
- * - Touch ID: концентрические отпечатки с пульсирующей волной.
- * - При подтверждении: трансформация в зеленый бейдж CheckBadge + тактильный отклик.
+ * Анимация биометрии в стиле Apple Face ID / Touch ID:
+ * - Форма острова: аутентичная закругленная карточка-квадрат (Rounded Square Card ~158x154 dp).
+ * - Центр: крупный глиф видоискателя Apple Face ID со сканирующим лазером или концентрический пульс Touch ID.
+ * - При подтверждении: плавный морфинг глифа в Apple CheckBadge (зеленый круг с пружинящей белой галочкой) + виброотклик.
  */
 @Composable
-fun BiometricNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
+fun BiometricNotice(n: Notice, s: IslandSettings) {
     val haptic = rememberHaptic()
     val info = n.biometric ?: BiometricInfo()
     val isSuccess = info.status == BiometricStatus.SUCCESS
@@ -59,64 +57,74 @@ fun BiometricNotice(n: Notice, s: IslandSettings, wideWidth: Dp) {
         if (isSuccess) haptic()
     }
 
-    val height = noticeHeight(s)
-    val glyphSize = height * 0.42f
+    val cardWidth = 158.dp
+    val topInset = cameraInset(s).coerceAtLeast(18.dp)
+    val cardHeight = 126.dp + topInset
+    val glyphSize = 56.dp
 
-    Row(
+    Column(
         modifier = Modifier
-            .width(wideWidth)
-            .height(height)
-            .padding(horizontal = height * 0.29f),
-        verticalAlignment = Alignment.CenterVertically,
+            .size(cardWidth, cardHeight)
+            .padding(top = topInset, bottom = 14.dp, start = 14.dp, end = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
+        Spacer(Modifier.height(2.dp))
+
+        Box(
+            modifier = Modifier.size(glyphSize),
+            contentAlignment = Alignment.Center,
         ) {
-            Crossfade(targetState = isSuccess, label = "bio_badge") { success ->
+            Crossfade(
+                targetState = isSuccess,
+                animationSpec = tween(280),
+                label = "bio_glyph",
+            ) { success ->
                 if (success) {
-                    CheckBadge(Tints.Green, animate = !s.reduceEffects, modifier = Modifier.size(glyphSize))
+                    CheckBadge(
+                        color = Tints.Green,
+                        animate = !s.reduceEffects,
+                        modifier = Modifier.size(glyphSize),
+                    )
                 } else if (isFace) {
                     AppleFaceIdGlyph(glyphSize, s.reduceEffects)
                 } else {
                     AppleTouchIdGlyph(glyphSize, s.reduceEffects)
                 }
             }
-            Spacer(Modifier.width(10.dp))
-            FitText(
-                text = n.title.ifBlank { if (isFace) "Face ID" else "Touch ID" },
-                color = Color.White,
-                max = 17.sp,
-                min = 13.sp,
-                weight = FontWeight.SemiBold.island,
-                modifier = Modifier.weight(1f, fill = false),
-            )
         }
 
-        Spacer(Modifier.width(compactGap(s)))
-
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
+            val titleText = n.caption ?: n.title.ifBlank { if (isFace) "Face ID" else "Touch ID" }
+            FitText(
+                text = titleText,
+                color = Color.White,
+                max = 16.sp,
+                min = 12.sp,
+                weight = FontWeight.SemiBold.island,
+            )
+
+            Spacer(Modifier.height(3.dp))
+
             val statusColor = when (info.status) {
                 BiometricStatus.SUCCESS -> Tints.Green
                 BiometricStatus.ERROR -> Tints.Red
-                BiometricStatus.SCANNING -> Tints.Teal
+                BiometricStatus.SCANNING -> Color.White.copy(alpha = 0.65f)
             }
             val statusText = n.state ?: when (info.status) {
-                BiometricStatus.SUCCESS -> "Verified"
-                BiometricStatus.ERROR -> "Try again"
-                BiometricStatus.SCANNING -> "Scanning..."
+                BiometricStatus.SUCCESS -> tr("Успешно", "Verified")
+                BiometricStatus.ERROR -> tr("Попробуйте снова", "Try again")
+                BiometricStatus.SCANNING -> tr("Сканирование...", "Scanning...")
             }
             FitText(
                 text = statusText,
                 color = statusColor,
-                max = 17.sp,
-                min = 12.sp,
-                weight = FontWeight.SemiBold.island,
-                modifier = Modifier.weight(1f, fill = false),
+                max = 12.sp,
+                min = 10.sp,
+                weight = FontWeight.Medium.island,
                 style = Digits,
             )
         }

@@ -6,6 +6,13 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.5] — 2026-10-29
+
+### 🍏 Authentic Apple Face ID Squircle Card
+- 🔲 **Rounded Square Geometry**: Replaced horizontal pill with the authentic Apple Dynamic Island Face ID rounded square card (~158x154 dp, 42 dp squircle corners).
+- 🎯 **Prominent Centered Glyphs**: Centered large Face ID viewfinder with animated laser sweep and Touch ID concentric pulse glyphs.
+- 🟢 **Spring CheckBadge Morphing**: Fluid transformation into Apple's signature green spring checkmark badge on successful authentication.
+
 ## [1.7.4] — 2026-10-29
 
 ### 🚀 Notification & Biometric Refinements
