@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Navigation
@@ -396,11 +397,13 @@ private fun demos(context: Context): List<Demo> = listOf(
         tr("Капсула вздрагивает, колокольчик качается", "The capsule shakes, the bell swings"), Tile.Red) {
         IslandBus.post(Notice("", tr("Без звука", "Silent"), Ios.load(context, R.drawable.ios_notifications_off), Tints.Red, style = NoticeStyle.PILL))
     },
-    Demo(Icons.Rounded.Fingerprint, tr("Биометрия Apple", "Apple Biometrics"),
-        tr("Face ID или Touch ID: сканирование и галочка", "Face ID or Touch ID: scan and checkmark"), Tile.Teal) {
-        val s = SettingsRepo.current
-        val isFace = s.biometricMode != BiometricMode.FINGERPRINT
-        BiometricMonitor.demo(context, isFace)
+    Demo(Icons.Rounded.Face, tr("Apple Face ID", "Apple Face ID"),
+        tr("Видоискатель сканирования лица и галочка", "Face viewfinder scan and checkmark morph"), Tile.Teal) {
+        BiometricMonitor.demo(context, isFace = true, appName = "WhatsApp")
+    },
+    Demo(Icons.Rounded.Fingerprint, tr("Apple Touch ID (Отпечаток)", "Apple Touch ID (Fingerprint)"),
+        tr("Векторный отпечаток и лазерное сканирование", "Animated fingerprint and laser scan morph"), Tile.Green) {
+        BiometricMonitor.demo(context, isFace = false, appName = "BCA mobile")
     },
     Demo(Icons.Rounded.ChatBubble, tr("Сообщение", "Message"),
         tr("С кнопками «Ответить» и «Пометить прочитанным»", "With Reply and Mark as read buttons"), Tile.Blue) {

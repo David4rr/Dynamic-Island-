@@ -66,6 +66,11 @@ object BiometricMonitor {
         "FingerprintActivity",
         "BiometricActivity",
         "FingerprintHelper",
+        "AppLockActivity",
+        "ConfirmDeviceCredential",
+        "BiometricAuthentication",
+        "FingerprintAuthentication",
+        "PinActivity",
     )
 
     private val BIO_KEYWORDS = listOf(
@@ -74,7 +79,10 @@ object BiometricMonitor {
         "whatsapp locked", "buka kunci", "kunci aplikasi", "отпечаток", "биометр",
         "confirm your fingerprint", "verify your identity", "touch the fingerprint sensor",
         "buka kunci dengan sidik jari", "pindai sidik jari", "sensor sidik jari",
-        "kunci wa", "verifikasi sidik jari",
+        "kunci wa", "verifikasi sidik jari", "masuk dengan sidik jari", "login dengan sidik jari",
+        "masuk dengan biometrik", "autentikasi sidik jari", "use fingerprint",
+        "sign in with biometric", "scan your fingerprint", "unlock with fingerprint",
+        "touch id", "face id", "tempelkan sidik jari",
     )
 
     fun isSystemPackage(pkg: String): Boolean = pkg in SYSTEM_SECURITY_PKGS
@@ -300,12 +308,13 @@ object BiometricMonitor {
         IslandBus.notice.value = null
     }
 
-    fun demo(context: Context, isFace: Boolean) {
+    fun demo(context: Context, isFace: Boolean, appName: String? = null) {
         demoJob?.cancel()
         demoJob = scope.launch {
-            showScanning(context, isFace, "WhatsApp")
+            val app = appName ?: if (isFace) "WhatsApp" else "BCA mobile"
+            showScanning(context, isFace, app)
             delay(1400)
-            showSuccess(context, isFace, "WhatsApp")
+            showSuccess(context, isFace, app)
         }
     }
 

@@ -1,21 +1,33 @@
 package com.akira.island.island
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,9 +54,9 @@ import com.akira.island.data.IslandSettings
 
 /**
  * Анимация биометрии в стиле Apple Face ID / Touch ID:
- * - Форма острова: аутентичная закругленная карточка-квадрат (Rounded Square Card ~158x154 dp).
- * - Центр: крупный глиф видоискателя Apple Face ID со сканирующим лазером или концентрический пульс Touch ID.
- * - При подтверждении: плавный морфинг глифа в Apple CheckBadge (зеленый круг с пружинящей белой галочкой) + виброотклик.
+ * - Форма острова: закругленная карточка-квадрат (Rounded Square Card ~158x154 dp).
+ * - Центр: крупный глиф Face ID с лазером или подлинный вектор Touch ID с анимированным лазером.
+ * - Упругий морфинг: при подтверждении глиф плавно сжимается, а зеленый CheckBadge выпрыгивает с физической пружиной.
  */
 @Composable
 fun BiometricNotice(n: Notice, s: IslandSettings) {
@@ -75,10 +87,24 @@ fun BiometricNotice(n: Notice, s: IslandSettings) {
             modifier = Modifier.size(glyphSize),
             contentAlignment = Alignment.Center,
         ) {
-            Crossfade(
+            AnimatedContent(
                 targetState = isSuccess,
-                animationSpec = tween(280),
-                label = "bio_glyph",
+                transitionSpec = {
+                    if (targetState) {
+                        // Упругий эластичный морфинг в зеленый CheckBadge Apple:
+                        // Старый глиф быстро уменьшается (scaleOut 0.7) и тает за 120 мс
+                        // Зеленый бейдж выпрыгивает с пружиной от 0.4 до 1.0 (spring bounce)
+                        (fadeIn(tween(180, delayMillis = 50)) + scaleIn(
+                            spring(dampingRatio = 0.58f, stiffness = 320f),
+                            initialScale = 0.4f,
+                        )).togetherWith(
+                            fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.7f)
+                        )
+                    } else {
+                        fadeIn(tween(160)).togetherWith(fadeOut(tween(120)))
+                    }
+                },
+                label = "bio_glyph_morph",
             ) { success ->
                 if (success) {
                     CheckBadge(
@@ -109,24 +135,34 @@ fun BiometricNotice(n: Notice, s: IslandSettings) {
 
             Spacer(Modifier.height(3.dp))
 
-            val statusColor = when (info.status) {
-                BiometricStatus.SUCCESS -> Tints.Green
-                BiometricStatus.ERROR -> Tints.Red
-                BiometricStatus.SCANNING -> Color.White.copy(alpha = 0.65f)
+            AnimatedContent(
+                targetState = isSuccess,
+                transitionSpec = {
+                    if (targetState) {
+                        (slideInVertically { it / 2 } + fadeIn(tween(180))).togetherWith(
+                            slideOutVertically { -it / 2 } + fadeOut(tween(120))
+                        )
+                    } else {
+                        fadeIn(tween(160)).togetherWith(fadeOut(tween(120)))
+                    }
+                },
+                label = "bio_status_anim",
+            ) { success ->
+                val statusColor = if (success) Tints.Green else Color.White.copy(alpha = 0.65f)
+                val statusText = if (success) {
+                    tr("Успешно", "Verified")
+                } else {
+                    n.state ?: tr("Сканирование...", "Scanning...")
+                }
+                FitText(
+                    text = statusText,
+                    color = statusColor,
+                    max = 12.sp,
+                    min = 10.sp,
+                    weight = FontWeight.Medium.island,
+                    style = Digits,
+                )
             }
-            val statusText = n.state ?: when (info.status) {
-                BiometricStatus.SUCCESS -> tr("Успешно", "Verified")
-                BiometricStatus.ERROR -> tr("Попробуйте снова", "Try again")
-                BiometricStatus.SCANNING -> tr("Сканирование...", "Scanning...")
-            }
-            FitText(
-                text = statusText,
-                color = statusColor,
-                max = 12.sp,
-                min = 10.sp,
-                weight = FontWeight.Medium.island,
-                style = Digits,
-            )
         }
     }
 }
@@ -181,7 +217,7 @@ fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
         }
         drawPath(brackets, Color.White, style = stroke)
 
-        // Глаза (две аккуратные вертикальные капсулы)
+        // Глаза (две вертикальные капсулы)
         val eyeH = h * 0.11f
         val eyeW = w * 0.055f
         drawLine(Color.White, Offset(w * 0.35f, h * 0.38f), Offset(w * 0.35f, h * 0.38f + eyeH), strokeWidth = eyeW, cap = StrokeCap.Round)
@@ -225,13 +261,13 @@ fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
     }
 }
 
-/** Иконический глиф отпечатка Touch ID с 5 гребнями и анимированным сканирующим лазером */
+/** Иконический глиф отпечатка Touch ID с подлинным вектором и анимированным лазерным лучом */
 @Composable
 fun AppleTouchIdGlyph(size: Dp, reduceEffects: Boolean) {
     val infiniteTransition = rememberInfiniteTransition(label = "finger_scan")
     val scanY by infiniteTransition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = 0.85f,
+        initialValue = 0.10f,
+        targetValue = 0.90f,
         animationSpec = infiniteRepeatable(
             animation = tween(1100, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
@@ -248,85 +284,52 @@ fun AppleTouchIdGlyph(size: Dp, reduceEffects: Boolean) {
         label = "pulse",
     )
 
-    Canvas(modifier = Modifier.size(size)) {
-        val w = this.size.width
-        val h = this.size.height
-        val strokeWidth = w * 0.068f
-        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    Box(
+        modifier = Modifier.size(size),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Подлинный векторный отпечаток Material Rounded
+        Icon(
+            imageVector = Icons.Rounded.Fingerprint,
+            contentDescription = "Touch ID",
+            tint = Color.White,
+            modifier = Modifier.fillMaxSize(),
+        )
 
-        // 1. Центр: завиток ядра (Center core loop)
-        val core = Path().apply {
-            moveTo(w * 0.50f, h * 0.72f)
-            cubicTo(w * 0.44f, h * 0.62f, w * 0.44f, h * 0.48f, w * 0.50f, h * 0.48f)
-            cubicTo(w * 0.56f, h * 0.48f, w * 0.56f, h * 0.60f, w * 0.50f, h * 0.65f)
-        }
-        drawPath(core, Color.White, style = stroke)
-
-        // 2. Внутренний гребень (Inner ridge)
-        val ridge1 = Path().apply {
-            moveTo(w * 0.36f, h * 0.82f)
-            cubicTo(w * 0.30f, h * 0.56f, w * 0.38f, h * 0.38f, w * 0.50f, h * 0.38f)
-            cubicTo(w * 0.62f, h * 0.38f, w * 0.70f, h * 0.56f, w * 0.64f, h * 0.82f)
-        }
-        drawPath(ridge1, Color.White, style = stroke)
-
-        // 3. Средний гребень (Middle ridge)
-        val ridge2 = Path().apply {
-            moveTo(w * 0.25f, h * 0.86f)
-            cubicTo(w * 0.17f, h * 0.50f, w * 0.30f, h * 0.26f, w * 0.50f, h * 0.26f)
-            cubicTo(w * 0.70f, h * 0.26f, w * 0.83f, h * 0.50f, w * 0.75f, h * 0.86f)
-        }
-        drawPath(ridge2, Color.White, style = stroke)
-
-        // 4. Внешний гребень (Outer ridge)
-        val ridge3 = Path().apply {
-            moveTo(w * 0.15f, h * 0.82f)
-            cubicTo(w * 0.08f, h * 0.42f, w * 0.24f, h * 0.14f, w * 0.50f, h * 0.14f)
-            cubicTo(w * 0.76f, h * 0.14f, w * 0.92f, h * 0.42f, w * 0.85f, h * 0.82f)
-        }
-        drawPath(ridge3, Color.White, style = stroke)
-
-        // 5. Боковые дельты (Side lower deltas)
-        val deltaLeft = Path().apply {
-            moveTo(w * 0.12f, h * 0.90f)
-            cubicTo(w * 0.10f, h * 0.85f, w * 0.14f, h * 0.76f, w * 0.20f, h * 0.74f)
-        }
-        drawPath(deltaLeft, Color.White, style = stroke)
-
-        val deltaRight = Path().apply {
-            moveTo(w * 0.88f, h * 0.90f)
-            cubicTo(w * 0.90f, h * 0.85f, w * 0.86f, h * 0.76f, w * 0.80f, h * 0.74f)
-        }
-        drawPath(deltaRight, Color.White, style = stroke)
-
-        // Анимированный лазерный луч сканирования отпечатка
+        // Анимированный лазерный луч и радарное кольцо сканирования
         if (!reduceEffects) {
-            val beamY = h * scanY
-            val laserBrush = Brush.horizontalGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    Tints.Teal.copy(alpha = 0.85f),
-                    Color.White,
-                    Tints.Teal.copy(alpha = 0.85f),
-                    Color.Transparent,
-                ),
-            )
-            drawLine(
-                brush = laserBrush,
-                start = Offset(w * 0.08f, beamY),
-                end = Offset(w * 0.92f, beamY),
-                strokeWidth = w * 0.05f,
-                cap = StrokeCap.Round,
-            )
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = this.size.width
+                val h = this.size.height
 
-            // Пульсирующая мягкая волна
-            val ringRadius = (w * 0.28f) + (pulse * w * 0.24f)
-            val ringAlpha = (1f - pulse) * 0.5f
-            drawCircle(
-                color = Tints.Teal.copy(alpha = ringAlpha),
-                radius = ringRadius,
-                style = Stroke(width = w * 0.04f),
-            )
+                // Лазерный луч
+                val beamY = h * scanY
+                val laserBrush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Tints.Teal.copy(alpha = 0.85f),
+                        Color.White,
+                        Tints.Teal.copy(alpha = 0.85f),
+                        Color.Transparent,
+                    ),
+                )
+                drawLine(
+                    brush = laserBrush,
+                    start = Offset(w * 0.08f, beamY),
+                    end = Offset(w * 0.92f, beamY),
+                    strokeWidth = w * 0.055f,
+                    cap = StrokeCap.Round,
+                )
+
+                // Пульсирующая волна
+                val ringRadius = (w * 0.28f) + (pulse * w * 0.22f)
+                val ringAlpha = (1f - pulse) * 0.5f
+                drawCircle(
+                    color = Tints.Teal.copy(alpha = ringAlpha),
+                    radius = ringRadius,
+                    style = Stroke(width = w * 0.04f),
+                )
+            }
         }
     }
 }

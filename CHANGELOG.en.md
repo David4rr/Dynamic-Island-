@@ -6,6 +6,14 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.7] — 2026-10-29
+
+### 🍏 Official Fingerprint Vector, Spring Morphing & Multi-App Support
+- 👆 **Crisp Official Fingerprint Glyph**: Replaced manual bezier curves with official `Icons.Rounded.Fingerprint` vector overlaid with animated laser scanner beam and radar pulse.
+- 🌀 **Spring Physics Morphing**: Implemented snappy Apple spring physics (`scaleIn` 0.4→1.0 with bouncy damping 0.58) when morphing into green `CheckBadge`, with animated sliding subtitle status text.
+- 🧪 **Dedicated Try-It Demos**: Added separate demo buttons for both **Apple Face ID** and **Apple Touch ID (Fingerprint)** on the Home Screen.
+- 🏦 **Dynamic Multi-App Detection**: Expanded biometric keywords and classes to dynamically support banking apps (BCA, Mandiri, BRImo, DANA, GoPay), password managers, Telegram, and system app locks.
+
 ## [1.7.6] — 2026-10-29
 
 ### 🍏 Enhanced Animated Face & Fingerprint Glyphs

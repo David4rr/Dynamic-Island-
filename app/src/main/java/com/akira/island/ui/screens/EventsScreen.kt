@@ -141,7 +141,8 @@ fun EventsScreen(onBack: () -> Unit) {
                     SettingsRepo.update { copy(biometricMode = v) }
                     biometricDialog = false
                     val isFace = v != BiometricMode.FINGERPRINT
-                    com.akira.island.service.BiometricMonitor.demo(context, isFace)
+                    val app = if (isFace) "WhatsApp" else "BCA mobile"
+                    com.akira.island.service.BiometricMonitor.demo(context, isFace, app)
                 },
                 onDismiss = { biometricDialog = false },
             )
