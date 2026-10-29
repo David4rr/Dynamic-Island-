@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import com.akira.island.data.BiometricMode
 import com.akira.island.ui.ChoiceDialog
 import com.akira.island.ui.GroupItem
@@ -46,9 +47,9 @@ import com.akira.island.ui.Tile
 @Composable
 fun EventsScreen(onBack: () -> Unit) {
     val s by SettingsRepo.state.collectAsState()
+    val context = LocalContext.current
     var biometricDialog by remember { mutableStateOf(false) }
     fun set(block: IslandSettings.() -> IslandSettings) = SettingsRepo.update(block)
-
     Page(tr("События", "Events"), onBack) {
         SectionHeader(tr("Батарея", "Battery"))
         Group {
@@ -139,6 +140,8 @@ fun EventsScreen(onBack: () -> Unit) {
                 onPick = { v ->
                     SettingsRepo.update { copy(biometricMode = v) }
                     biometricDialog = false
+                    val isFace = v != BiometricMode.FINGERPRINT
+                    com.akira.island.service.BiometricMonitor.demo(context, isFace)
                 },
                 onDismiss = { biometricDialog = false },
             )

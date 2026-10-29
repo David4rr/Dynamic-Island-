@@ -225,15 +225,24 @@ fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
     }
 }
 
-/** Иконический глиф отпечатка Touch ID с мягкой волной */
+/** Иконический глиф отпечатка Touch ID с 5 гребнями и анимированным сканирующим лазером */
 @Composable
 fun AppleTouchIdGlyph(size: Dp, reduceEffects: Boolean) {
-    val infiniteTransition = rememberInfiniteTransition(label = "finger_pulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "finger_scan")
+    val scanY by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "scan_y",
+    )
     val pulse by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
+            animation = tween(1400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "pulse",
@@ -242,31 +251,81 @@ fun AppleTouchIdGlyph(size: Dp, reduceEffects: Boolean) {
     Canvas(modifier = Modifier.size(size)) {
         val w = this.size.width
         val h = this.size.height
-        val stroke = Stroke(width = w * 0.075f, cap = StrokeCap.Round)
+        val strokeWidth = w * 0.068f
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
-        // Концентрические гребни отпечатка
+        // 1. Центр: завиток ядра (Center core loop)
+        val core = Path().apply {
+            moveTo(w * 0.50f, h * 0.72f)
+            cubicTo(w * 0.44f, h * 0.62f, w * 0.44f, h * 0.48f, w * 0.50f, h * 0.48f)
+            cubicTo(w * 0.56f, h * 0.48f, w * 0.56f, h * 0.60f, w * 0.50f, h * 0.65f)
+        }
+        drawPath(core, Color.White, style = stroke)
+
+        // 2. Внутренний гребень (Inner ridge)
         val ridge1 = Path().apply {
             moveTo(w * 0.36f, h * 0.82f)
-            quadraticTo(w * 0.30f, h * 0.55f, w * 0.50f, h * 0.40f)
-            quadraticTo(w * 0.70f, h * 0.55f, w * 0.64f, h * 0.82f)
+            cubicTo(w * 0.30f, h * 0.56f, w * 0.38f, h * 0.38f, w * 0.50f, h * 0.38f)
+            cubicTo(w * 0.62f, h * 0.38f, w * 0.70f, h * 0.56f, w * 0.64f, h * 0.82f)
         }
         drawPath(ridge1, Color.White, style = stroke)
 
+        // 3. Средний гребень (Middle ridge)
         val ridge2 = Path().apply {
-            moveTo(w * 0.24f, h * 0.86f)
-            quadraticTo(w * 0.16f, h * 0.44f, w * 0.50f, h * 0.24f)
-            quadraticTo(w * 0.84f, h * 0.44f, w * 0.76f, h * 0.86f)
+            moveTo(w * 0.25f, h * 0.86f)
+            cubicTo(w * 0.17f, h * 0.50f, w * 0.30f, h * 0.26f, w * 0.50f, h * 0.26f)
+            cubicTo(w * 0.70f, h * 0.26f, w * 0.83f, h * 0.50f, w * 0.75f, h * 0.86f)
         }
         drawPath(ridge2, Color.White, style = stroke)
 
-        // Пульсирующее кольцо сканирования
+        // 4. Внешний гребень (Outer ridge)
+        val ridge3 = Path().apply {
+            moveTo(w * 0.15f, h * 0.82f)
+            cubicTo(w * 0.08f, h * 0.42f, w * 0.24f, h * 0.14f, w * 0.50f, h * 0.14f)
+            cubicTo(w * 0.76f, h * 0.14f, w * 0.92f, h * 0.42f, w * 0.85f, h * 0.82f)
+        }
+        drawPath(ridge3, Color.White, style = stroke)
+
+        // 5. Боковые дельты (Side lower deltas)
+        val deltaLeft = Path().apply {
+            moveTo(w * 0.12f, h * 0.90f)
+            cubicTo(w * 0.10f, h * 0.85f, w * 0.14f, h * 0.76f, w * 0.20f, h * 0.74f)
+        }
+        drawPath(deltaLeft, Color.White, style = stroke)
+
+        val deltaRight = Path().apply {
+            moveTo(w * 0.88f, h * 0.90f)
+            cubicTo(w * 0.90f, h * 0.85f, w * 0.86f, h * 0.76f, w * 0.80f, h * 0.74f)
+        }
+        drawPath(deltaRight, Color.White, style = stroke)
+
+        // Анимированный лазерный луч сканирования отпечатка
         if (!reduceEffects) {
-            val ringRadius = (w * 0.22f) + (pulse * w * 0.30f)
-            val ringAlpha = (1f - pulse) * 0.7f
+            val beamY = h * scanY
+            val laserBrush = Brush.horizontalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Tints.Teal.copy(alpha = 0.85f),
+                    Color.White,
+                    Tints.Teal.copy(alpha = 0.85f),
+                    Color.Transparent,
+                ),
+            )
+            drawLine(
+                brush = laserBrush,
+                start = Offset(w * 0.08f, beamY),
+                end = Offset(w * 0.92f, beamY),
+                strokeWidth = w * 0.05f,
+                cap = StrokeCap.Round,
+            )
+
+            // Пульсирующая мягкая волна
+            val ringRadius = (w * 0.28f) + (pulse * w * 0.24f)
+            val ringAlpha = (1f - pulse) * 0.5f
             drawCircle(
                 color = Tints.Teal.copy(alpha = ringAlpha),
                 radius = ringRadius,
-                style = Stroke(width = w * 0.05f),
+                style = Stroke(width = w * 0.04f),
             )
         }
     }

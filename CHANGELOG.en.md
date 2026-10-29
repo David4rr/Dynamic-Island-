@@ -6,6 +6,13 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.6] — 2026-10-29
+
+### 🍏 Enhanced Animated Face & Fingerprint Glyphs
+- 👤 **Apple Face ID**: Iconic viewfinder with eyes, nose, smile, and animated teal laser sweep.
+- 👆 **Apple Touch ID**: Multi-ridge concentric fingerprint (core loop, inner, middle, and outer arches) with animated laser beam sweep and pulsating radar glow.
+- ⚡ **Live Style Preview**: Instantly previews the selected biometric animation when toggled in Events screen.
+
 ## [1.7.5] — 2026-10-29
 
 ### 🍏 Authentic Apple Face ID Squircle Card
