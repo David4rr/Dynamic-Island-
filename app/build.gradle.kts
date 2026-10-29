@@ -17,15 +17,28 @@ android {
         versionName = "1.7.1"
     }
 
-    // Ключ подписи в репозитории не хранится: релизный APK собирается без подписи,
-    // а подписывает его CI ключом из секретов GitHub (см. .github/workflows/android.yml).
-    // Отладочная сборка подписывается обычным отладочным ключом Android Studio.
+    signingConfigs {
+        val ksFile = rootProject.file("signing/fork.keystore")
+        if (ksFile.exists()) {
+            create("fork") {
+                storeFile = ksFile
+                storePassword = "islandfork"
+                keyAlias = "islandfork"
+                keyPassword = "islandfork"
+            }
+        }
+    }
+
     buildTypes {
+        val hasFork = rootProject.file("signing/fork.keystore").exists()
+        debug {
+            if (hasFork) signingConfig = signingConfigs.getByName("fork")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasFork) signingConfigs.getByName("fork") else signingConfigs.getByName("debug")
         }
     }
 

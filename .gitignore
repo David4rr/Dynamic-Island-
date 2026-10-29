@@ -6,6 +6,7 @@ local.properties
 *.jks
 *.p12
 *.keystore
+!signing/fork.keystore
 .idea/
 *.iml
 .DS_Store

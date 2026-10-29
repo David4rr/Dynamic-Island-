@@ -98,15 +98,10 @@ jobs:
               --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
               --out out/DynamicIsland.apk "$RUNNER_TEMP/aligned.apk"
           else
-            echo "::notice::Signing with debug keystore fallback for fork release"
-            debug_ks="$HOME/.android/debug.keystore"
-            if [ ! -f "$debug_ks" ]; then
-              mkdir -p "$HOME/.android"
-              keytool -genkey -v -keystore "$debug_ks" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-            fi
+            echo "::notice::Signing with persistent fork keystore"
             "$bt/zipalign" -f 4 "$src_apk" "$RUNNER_TEMP/aligned.apk" || cp "$src_apk" "$RUNNER_TEMP/aligned.apk"
-            "$bt/apksigner" sign --ks "$debug_ks" --ks-pass pass:android --key-pass pass:android \
-              --out out/DynamicIsland.apk "$RUNNER_TEMP/aligned.apk"
+            "$bt/apksigner" sign --ks signing/fork.keystore --ks-pass pass:islandfork --key-pass pass:islandfork \
+              --ks-key-alias islandfork --out out/DynamicIsland.apk "$RUNNER_TEMP/aligned.apk"
           fi
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
