@@ -6,6 +6,13 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.8] — 2026-10-29
+
+### 🍏 Continuous Apple Squircle & Unclipped Spring Morphing
+- 🔲 **Lush 52dp Squircle Corners**: Increased corner radius to 52dp and ensured biometric cards are always rendered with full 4-corner rounded squircles (never flattened at top).
+- 🌀 **Unclipped Smooth Morphing**: Disabled rectangular bounding-box clipping (`SizeTransform(clip = false)`) so the morphing between glyphs and green checkmark badge is 100% round and fluid.
+- 🟢 **Pure AppleCheckBadge**: Dedicated vector badge with `FastOutSlowInEasing` tick stroke and natural spring bounce, eliminating jarring square artifacts.
+
 ## [1.7.7] — 2026-10-29
 
 ### 🍏 Official Fingerprint Vector, Spring Morphing & Multi-App Support

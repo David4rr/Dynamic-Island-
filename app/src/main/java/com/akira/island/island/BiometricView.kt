@@ -1,6 +1,8 @@
 package com.akira.island.island
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -31,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -38,6 +41,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -51,12 +55,13 @@ import com.akira.island.core.Notice
 import com.akira.island.core.Tints
 import com.akira.island.core.tr
 import com.akira.island.data.IslandSettings
+import kotlinx.coroutines.delay
 
 /**
  * Анимация биометрии в стиле Apple Face ID / Touch ID:
- * - Форма острова: закругленная карточка-квадрат (Rounded Square Card ~158x154 dp).
+ * - Форма острова: закругленная карточка-квадрат (Rounded Square Card ~158x154 dp, скругление 52 dp).
  * - Центр: крупный глиф Face ID с лазером или подлинный вектор Touch ID с анимированным лазером.
- * - Упругий морфинг: при подтверждении глиф плавно сжимается, а зеленый CheckBadge выпрыгивает с физической пружиной.
+ * - Упругий морфинг: при подтверждении глиф плавно сжимается, а зеленый круг AppleCheckBadge выпрыгивает с физической пружиной без квадратных рамок.
  */
 @Composable
 fun BiometricNotice(n: Notice, s: IslandSettings) {
@@ -90,28 +95,25 @@ fun BiometricNotice(n: Notice, s: IslandSettings) {
             AnimatedContent(
                 targetState = isSuccess,
                 transitionSpec = {
-                    if (targetState) {
-                        // Упругий эластичный морфинг в зеленый CheckBadge Apple:
-                        // Старый глиф быстро уменьшается (scaleOut 0.7) и тает за 120 мс
-                        // Зеленый бейдж выпрыгивает с пружиной от 0.4 до 1.0 (spring bounce)
-                        (fadeIn(tween(180, delayMillis = 50)) + scaleIn(
-                            spring(dampingRatio = 0.58f, stiffness = 320f),
-                            initialScale = 0.4f,
+                    val transform = if (targetState) {
+                        // Плавный упругий переход в Apple CheckBadge:
+                        // Иконка плавно уменьшается и растворяется (130мс)
+                        // Зеленый бейдж вырастает от центра с мягкой пружиной Apple (0.5 to 1.0)
+                        (fadeIn(tween(180, delayMillis = 30)) + scaleIn(
+                            spring(dampingRatio = 0.65f, stiffness = 280f),
+                            initialScale = 0.5f,
                         )).togetherWith(
-                            fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.7f)
+                            fadeOut(tween(130)) + scaleOut(tween(130), targetScale = 0.8f)
                         )
                     } else {
                         fadeIn(tween(160)).togetherWith(fadeOut(tween(120)))
                     }
+                    transform.using(SizeTransform(clip = false))
                 },
                 label = "bio_glyph_morph",
             ) { success ->
                 if (success) {
-                    CheckBadge(
-                        color = Tints.Green,
-                        animate = !s.reduceEffects,
-                        modifier = Modifier.size(glyphSize),
-                    )
+                    AppleCheckBadge(glyphSize, s.reduceEffects)
                 } else if (isFace) {
                     AppleFaceIdGlyph(glyphSize, s.reduceEffects)
                 } else {
@@ -138,13 +140,14 @@ fun BiometricNotice(n: Notice, s: IslandSettings) {
             AnimatedContent(
                 targetState = isSuccess,
                 transitionSpec = {
-                    if (targetState) {
+                    val transform = if (targetState) {
                         (slideInVertically { it / 2 } + fadeIn(tween(180))).togetherWith(
                             slideOutVertically { -it / 2 } + fadeOut(tween(120))
                         )
                     } else {
                         fadeIn(tween(160)).togetherWith(fadeOut(tween(120)))
                     }
+                    transform.using(SizeTransform(clip = false))
                 },
                 label = "bio_status_anim",
             ) { success ->
@@ -167,7 +170,41 @@ fun BiometricNotice(n: Notice, s: IslandSettings) {
     }
 }
 
-/** Иконический видоискатель Apple Face ID с анимированным лазерным лучом */
+/** Зеленый бейдж Apple с плавной прорисовкой галочки без квадратных рамок */
+@Composable
+fun AppleCheckBadge(size: Dp, reduceEffects: Boolean) {
+    val drawTick = remember { Animatable(if (reduceEffects) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!reduceEffects) {
+            delay(70)
+            drawTick.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
+        }
+    }
+    Canvas(modifier = Modifier.size(size)) {
+        val w = this.size.width
+        val radius = w * 0.44f
+        // Идеальный круг цвета сочного зеленого яблока
+        drawCircle(color = Tints.Green, radius = radius)
+
+        // Чистая белая галочка Apple
+        val tick = Path().apply {
+            moveTo(w * 0.33f, w * 0.50f)
+            lineTo(w * 0.45f, w * 0.63f)
+            lineTo(w * 0.68f, w * 0.38f)
+        }
+        val part = Path()
+        val measure = PathMeasure()
+        measure.setPath(tick, false)
+        measure.getSegment(0f, measure.length * drawTick.value, part, true)
+        drawPath(
+            part,
+            Color.White,
+            style = Stroke(width = w * 0.082f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
+    }
+}
+
+/** Иконический видоискатель Apple Face ID с мягкими скругленными скобками и лазерным лучом */
 @Composable
 fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
     val infiniteTransition = rememberInfiniteTransition(label = "face_scan")
@@ -184,40 +221,43 @@ fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
     Canvas(modifier = Modifier.size(size)) {
         val w = this.size.width
         val h = this.size.height
-        val strokeWidth = w * 0.082f
+        val pad = w * 0.07f
+        val innerW = w - 2 * pad
+        val innerH = h - 2 * pad
+        val strokeWidth = w * 0.075f
         val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val cornerLen = w * 0.22f
-        val r = w * 0.14f
+        val cornerLen = innerW * 0.22f
+        val r = innerW * 0.16f
 
-        // 4 угловые скобки видоискателя
+        // 4 мягкие угловые скобки видоискателя
         val brackets = Path().apply {
-            // Верхняя левая скобка
-            moveTo(0f, r + cornerLen)
-            lineTo(0f, r)
-            arcTo(Rect(0f, 0f, 2 * r, 2 * r), 180f, 90f, false)
-            lineTo(r + cornerLen, 0f)
+            // Верхняя левая
+            moveTo(pad, pad + r + cornerLen)
+            lineTo(pad, pad + r)
+            arcTo(Rect(pad, pad, pad + 2 * r, pad + 2 * r), 180f, 90f, false)
+            lineTo(pad + r + cornerLen, pad)
 
-            // Верхняя правая скобка
-            moveTo(w - r - cornerLen, 0f)
-            lineTo(w - r, 0f)
-            arcTo(Rect(w - 2 * r, 0f, w, 2 * r), 270f, 90f, false)
-            lineTo(w, r + cornerLen)
+            // Верхняя правая
+            moveTo(w - pad - r - cornerLen, pad)
+            lineTo(w - pad - r, pad)
+            arcTo(Rect(w - pad - 2 * r, pad, w - pad, pad + 2 * r), 270f, 90f, false)
+            lineTo(w - pad, pad + r + cornerLen)
 
-            // Нижняя правая скобка
-            moveTo(w, h - r - cornerLen)
-            lineTo(w, h - r)
-            arcTo(Rect(w - 2 * r, h - 2 * r, w, h), 0f, 90f, false)
-            lineTo(w - r - cornerLen, h)
+            // Нижняя правая
+            moveTo(w - pad, h - pad - r - cornerLen)
+            lineTo(w - pad, h - pad - r)
+            arcTo(Rect(w - pad - 2 * r, h - pad - 2 * r, w - pad, h - pad), 0f, 90f, false)
+            lineTo(w - pad - r - cornerLen, h - pad)
 
-            // Нижняя левая скобка
-            moveTo(r + cornerLen, h)
-            lineTo(r, h)
-            arcTo(Rect(0f, h - 2 * r, 2 * r, h), 90f, 90f, false)
-            lineTo(0f, h - r - cornerLen)
+            // Нижняя левая
+            moveTo(pad + r + cornerLen, h - pad)
+            lineTo(pad + r, h - pad)
+            arcTo(Rect(pad, h - pad - 2 * r, pad + 2 * r, h - pad), 90f, 90f, false)
+            lineTo(pad, h - pad - r - cornerLen)
         }
         drawPath(brackets, Color.White, style = stroke)
 
-        // Глаза (две вертикальные капсулы)
+        // Глаза (две аккуратные вертикальные капсулы)
         val eyeH = h * 0.11f
         val eyeW = w * 0.055f
         drawLine(Color.White, Offset(w * 0.35f, h * 0.38f), Offset(w * 0.35f, h * 0.38f + eyeH), strokeWidth = eyeW, cap = StrokeCap.Round)
@@ -233,8 +273,8 @@ fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
 
         // Улыбка (дуга)
         val smilePath = Path().apply {
-            moveTo(w * 0.33f, h * 0.70f)
-            quadraticTo(w * 0.50f, h * 0.81f, w * 0.67f, h * 0.70f)
+            moveTo(w * 0.33f, h * 0.69f)
+            quadraticTo(w * 0.50f, h * 0.80f, w * 0.67f, h * 0.69f)
         }
         drawPath(smilePath, Color.White, style = Stroke(width = w * 0.065f, cap = StrokeCap.Round))
 
@@ -252,8 +292,8 @@ fun AppleFaceIdGlyph(size: Dp, reduceEffects: Boolean) {
             )
             drawLine(
                 brush = laserBrush,
-                start = Offset(w * 0.08f, beamY),
-                end = Offset(w * 0.92f, beamY),
+                start = Offset(w * 0.10f, beamY),
+                end = Offset(w * 0.90f, beamY),
                 strokeWidth = w * 0.05f,
                 cap = StrokeCap.Round,
             )
@@ -288,12 +328,12 @@ fun AppleTouchIdGlyph(size: Dp, reduceEffects: Boolean) {
         modifier = Modifier.size(size),
         contentAlignment = Alignment.Center,
     ) {
-        // Подлинный векторный отпечаток Material Rounded
+        // Подлинный векторный отпечаток Material Rounded с мягкими отступами
         Icon(
             imageVector = Icons.Rounded.Fingerprint,
             contentDescription = "Touch ID",
             tint = Color.White,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.size(size * 0.82f),
         )
 
         // Анимированный лазерный луч и радарное кольцо сканирования
@@ -315,19 +355,19 @@ fun AppleTouchIdGlyph(size: Dp, reduceEffects: Boolean) {
                 )
                 drawLine(
                     brush = laserBrush,
-                    start = Offset(w * 0.08f, beamY),
-                    end = Offset(w * 0.92f, beamY),
-                    strokeWidth = w * 0.055f,
+                    start = Offset(w * 0.12f, beamY),
+                    end = Offset(w * 0.88f, beamY),
+                    strokeWidth = w * 0.05f,
                     cap = StrokeCap.Round,
                 )
 
                 // Пульсирующая волна
-                val ringRadius = (w * 0.28f) + (pulse * w * 0.22f)
-                val ringAlpha = (1f - pulse) * 0.5f
+                val ringRadius = (w * 0.28f) + (pulse * w * 0.20f)
+                val ringAlpha = (1f - pulse) * 0.45f
                 drawCircle(
                     color = Tints.Teal.copy(alpha = ringAlpha),
                     radius = ringRadius,
-                    style = Stroke(width = w * 0.04f),
+                    style = Stroke(width = w * 0.035f),
                 )
             }
         }

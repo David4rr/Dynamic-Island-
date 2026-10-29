@@ -454,15 +454,16 @@ private fun IslandBody(
     val expandedWidth = expandedWidth(conf.screenWidthDp.dp, s)
     val h = s.height.dp
 
-    // Скругления — как в ролике: плеер и фонарик 46, навигатор 42, обновление 36, уведомление 32
+    val isBiometric = primary is Act.NoticeA && primary.n.style == NoticeStyle.BIOMETRIC
+    // Скругления — как в ролике: биометрия Apple 52, плеер и фонарик 46, навигатор 42, обновление 36, уведомление 32
     val cornerTarget = when {
+        isBiometric -> 52.dp
         expanded && (primary is Act.MediaA || primary is Act.TorchA) -> 46.dp
         expanded && primary is Act.LiveA -> 42.dp
         expanded -> 44.dp
         primary is Act.NoticeA && primary.n.style == NoticeStyle.MESSAGE && s.messageStyle == MessageStyle.PILL -> 40.dp
         primary is Act.NoticeA && (primary.n.style == NoticeStyle.MESSAGE || primary.n.style == NoticeStyle.EGG) -> 32.dp
         primary is Act.NoticeA && primary.n.style == NoticeStyle.UPDATE -> 36.dp
-        primary is Act.NoticeA && primary.n.style == NoticeStyle.BIOMETRIC -> 42.dp
         primary is Act.NoticeA && primary.n.style == NoticeStyle.WIDE && primary.n.title.isNotBlank() -> noticeHeight(s) / 2
         primary is Act.NoticeA && (primary.n.style == NoticeStyle.PAY_DONE ||
             primary.n.style == NoticeStyle.LIVE || primary.n.style == NoticeStyle.ALARM || primary.n.style == NoticeStyle.SENT) -> noticeHeight(s) / 2
@@ -471,9 +472,10 @@ private fun IslandBody(
         primary is Act.Idle -> h / 2
         else -> activeHeight(s) / 2
     }
+    val useNotch = if (isBiometric) false else s.notch
     // Скругление читается при рисовании: кадр раскрытия перерисовывает рамку и стекло, а не пересобирает остров
     val corner = animateDpAsState(cornerTarget, islandSpec(s), label = "corner")
-    val shape = remember(corner, s.notch) { AnimatedIslandShape(corner, s.notch) }
+    val shape = remember(corner, useNotch) { AnimatedIslandShape(corner, useNotch) }
     val accent = (primary as? Act.MediaA)?.m?.accent
     val outlineColor = if (s.outlineFromArt && accent != null) accent else Color(s.outlineColor)
 
@@ -545,10 +547,10 @@ private fun IslandBody(
                 translationX = shake.value.dp.toPx()
                 transformOrigin = TransformOrigin(0.5f, 0f)
             }
-            .then(if (glowAlpha > 0f) Modifier.drawBehind { islandGlow(glowTint, glowAlpha, corner.value.toPx(), s.notch) } else Modifier)
+            .then(if (glowAlpha > 0f) Modifier.drawBehind { islandGlow(glowTint, glowAlpha, corner.value.toPx(), useNotch) } else Modifier)
             // Тень и обрезка по форме — одним слоем; форма на каждом кадре берётся из анимации скругления
             .graphicsLayer {
-                this.shape = islandShape(corner.value, s.notch)
+                this.shape = islandShape(corner.value, useNotch)
                 clip = true
                 when {
                     s.liquidGlass && !calibrating && !s.reduceEffects -> {
@@ -680,7 +682,7 @@ private fun IslandBody(
             contentKey = { it.key },
             transitionSpec = {
                 val change = if (s.liquidExpand) EnterTransition.None togetherWith ExitTransition.None else classicChange(s)
-                change.using(SizeTransform(clip = true) { _, _ -> islandSpec(s) })
+                change.using(SizeTransform(clip = false) { _, _ -> islandSpec(s) })
             },
         ) { f ->
             Box(if (s.liquidExpand) liquidFlow(f.key, frames, widths, s) else classicFlow(s)) {

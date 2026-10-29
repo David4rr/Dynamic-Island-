@@ -13,8 +13,8 @@ android {
         applicationId = "com.akira.island"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.7.7"
+        versionCode = 22
+        versionName = "1.7.8"
     }
 
     signingConfigs {
