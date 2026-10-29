@@ -598,6 +598,8 @@
 "Disables default system pop-up banners (heads_up_notifications_enabled 0). Only the island will show them.": "Menonaktifkan banner pop-up putih bawaan sistem (heads_up_notifications_enabled 0). Hanya pulau yang akan menampilkannya.",
 "Hide Status Bar Icons": "Sembunyikan Ikon Status Bar",
 "Hides notification and system icons in the status bar for a clean display.": "Sembunyikan ikon notifikasi dan sistem di status bar untuk tampilan bersih.",
+"Hide App Notification Icons": "Sembunyikan Ikon Notifikasi Aplikasi",
+"Hides app notification icons on the left of the status bar, keeping clock, battery, and network icons visible.": "Menyembunyikan ikon notifikasi aplikasi di sebelah kiri status bar, membiarkan jam, baterai, dan sinyal tetap terlihat.",
 "Copy ADB Command": "Salin Perintah ADB",
 "Or configure apps manually: tap an app below and turn off “Pop on screen”. The notification stays in the shade, and only the island shows the event on screen.": "Atau atur aplikasi secara manual: ketuk aplikasi di bawah dan matikan \"Tampilkan di layar\". Notifikasi tetap ada di laci, dan hanya pulau yang menampilkannya di layar."
 }

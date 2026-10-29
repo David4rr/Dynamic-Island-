@@ -21,7 +21,7 @@ object ShizukuHelper {
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private const val ICON_BLACKLIST_FULL = "wifi,cell,mobile,phone_signal,phone_evdo_signal,data_connection,no_calling,volte,ims_volte,wifi_calling,vowifi,battery,battery_saver,power_saver,clock,time,volume,mute,vibrate,bluetooth,bt,bluetooth_connected,bluetooth_battery,bt_battery,bt_connected,hearing_aid,bluetooth_hearing_aid,headset,headphone,earphone,earphones,alarm_clock,alarm,zen,dnd,do_not_disturb,managed_profile,nfc,nfc_on,cast,hotspot,vpn,airplane,location,gps,camera,microphone,screen_record,connected_display,sync_active,sync_failing,rotate,eye_protect,notification,notifications,notification_icons,notification_badge,notification_badges,badges,more_notifications,app_badge,app_icon,new_message,message,mail,sms"
+    private const val NOTIF_ICON_BLACKLIST = "notification,notifications,more_notifications,notification_icons,notification_badge,notification_badges,badges,app_badge,app_icon,new_message,message,mail,sms"
 
     fun isShizukuInstalled(context: Context): Boolean {
         return try {
@@ -89,8 +89,14 @@ object ShizukuHelper {
 
     fun isStatusBarIconsHidden(context: Context): Boolean {
         return try {
-            val blacklist = Settings.Secure.getString(context.contentResolver, "icon_blacklist")
-            !blacklist.isNullOrBlank()
+            val s1 = Settings.Secure.getString(context.contentResolver, "status_bar_show_notification_icon") == "0"
+            val s2 = Settings.Secure.getString(context.contentResolver, "show_notification_icon") == "0"
+            val s3 = Settings.Secure.getString(context.contentResolver, "status_bar_notification_icons") == "0"
+            val s4 = Settings.System.getString(context.contentResolver, "status_bar_show_notification_icon") == "0"
+            val s5 = Settings.System.getString(context.contentResolver, "show_notification_icon") == "0"
+            val s6 = Settings.System.getString(context.contentResolver, "status_bar_notification_icons") == "0"
+            val s7 = Settings.Secure.getString(context.contentResolver, "icon_blacklist")?.contains("notification") == true
+            s1 || s2 || s3 || s4 || s5 || s6 || s7
         } catch (_: Throwable) {
             false
         }
@@ -134,24 +140,30 @@ object ShizukuHelper {
 
             if (hasWriteSecureSettings(context)) {
                 try {
+                    // Always clear policy_control so system status bar (clock, wifi, battery) remains visible
+                    Settings.Global.putString(context.contentResolver, "policy_control", "")
+
                     if (hidden) {
-                        Settings.Secure.putString(context.contentResolver, "icon_blacklist", ICON_BLACKLIST_FULL)
-                        Settings.Global.putString(context.contentResolver, "policy_control", "immersive.status=*")
                         Settings.Secure.putString(context.contentResolver, "status_bar_show_notification_icon", "0")
                         Settings.Secure.putString(context.contentResolver, "show_notification_icon", "0")
-                        Settings.Secure.putString(context.contentResolver, "notification_badging", "0")
-                        Settings.Secure.putString(context.contentResolver, "status_bar_show_badges", "0")
+                        Settings.Secure.putString(context.contentResolver, "status_bar_notification_icons", "0")
+                        Settings.Secure.putString(context.contentResolver, "max_notification_icons", "0")
                         Settings.System.putString(context.contentResolver, "status_bar_show_notification_icon", "0")
                         Settings.System.putString(context.contentResolver, "show_notification_icon", "0")
+                        Settings.System.putString(context.contentResolver, "status_bar_notification_icons", "0")
+                        Settings.System.putString(context.contentResolver, "max_notification_icons", "0")
+                        // Only block notification-related icons, NEVER system icons like clock, battery, wifi, cell
+                        Settings.Secure.putString(context.contentResolver, "icon_blacklist", NOTIF_ICON_BLACKLIST)
                     } else {
-                        Settings.Secure.putString(context.contentResolver, "icon_blacklist", "")
-                        Settings.Global.putString(context.contentResolver, "policy_control", "")
                         Settings.Secure.putString(context.contentResolver, "status_bar_show_notification_icon", "1")
                         Settings.Secure.putString(context.contentResolver, "show_notification_icon", "1")
-                        Settings.Secure.putString(context.contentResolver, "notification_badging", "1")
-                        Settings.Secure.putString(context.contentResolver, "status_bar_show_badges", "1")
+                        Settings.Secure.putString(context.contentResolver, "status_bar_notification_icons", "2")
+                        Settings.Secure.putString(context.contentResolver, "max_notification_icons", "3")
                         Settings.System.putString(context.contentResolver, "status_bar_show_notification_icon", "1")
                         Settings.System.putString(context.contentResolver, "show_notification_icon", "1")
+                        Settings.System.putString(context.contentResolver, "status_bar_notification_icons", "2")
+                        Settings.System.putString(context.contentResolver, "max_notification_icons", "3")
+                        Settings.Secure.putString(context.contentResolver, "icon_blacklist", "")
                     }
                     success = true
                 } catch (e: Throwable) {
@@ -161,33 +173,31 @@ object ShizukuHelper {
 
             val commands = if (hidden) {
                 listOf(
-                    "settings put secure icon_blacklist \"$ICON_BLACKLIST_FULL\"",
-                    "settings put global policy_control \"immersive.status=*\"",
+                    "settings put global policy_control \"\"",
                     "settings put secure status_bar_show_notification_icon 0",
                     "settings put secure show_notification_icon 0",
-                    "settings put secure notification_badging 0",
-                    "settings put secure status_bar_show_badges 0",
+                    "settings put secure status_bar_notification_icons 0",
+                    "settings put secure max_notification_icons 0",
                     "settings put system status_bar_show_notification_icon 0",
-                    "settings put system show_notification_icon 0"
+                    "settings put system show_notification_icon 0",
+                    "settings put system status_bar_notification_icons 0",
+                    "settings put system max_notification_icons 0",
+                    "settings put secure icon_blacklist \"$NOTIF_ICON_BLACKLIST\""
                 )
             } else {
                 listOf(
-                    "settings delete secure icon_blacklist",
-                    "settings put secure icon_blacklist \"\"",
                     "settings delete global policy_control",
                     "settings put global policy_control \"\"",
-                    "settings delete secure status_bar_show_notification_icon",
+                    "settings delete secure icon_blacklist",
+                    "settings put secure icon_blacklist \"\"",
                     "settings put secure status_bar_show_notification_icon 1",
-                    "settings delete secure show_notification_icon",
                     "settings put secure show_notification_icon 1",
-                    "settings delete secure notification_badging",
-                    "settings put secure notification_badging 1",
-                    "settings delete secure status_bar_show_badges",
-                    "settings put secure status_bar_show_badges 1",
-                    "settings delete system status_bar_show_notification_icon",
+                    "settings put secure status_bar_notification_icons 2",
+                    "settings put secure max_notification_icons 3",
                     "settings put system status_bar_show_notification_icon 1",
-                    "settings delete system show_notification_icon",
-                    "settings put system show_notification_icon 1"
+                    "settings put system show_notification_icon 1",
+                    "settings put system status_bar_notification_icons 2",
+                    "settings put system max_notification_icons 3"
                 )
             }
 
@@ -204,7 +214,6 @@ object ShizukuHelper {
                     p.waitFor()
                 }
             } catch (_: Throwable) {}
-
             mainHandler.post { onResult?.invoke(success) }
         }
     }

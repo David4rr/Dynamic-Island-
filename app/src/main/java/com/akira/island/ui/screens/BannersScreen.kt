@@ -140,10 +140,10 @@ fun BannersScreen(onBack: () -> Unit) {
             GroupToggle(
                 pos = Pos.Middle,
                 icon = Icons.Rounded.VisibilityOff,
-                title = tr("Скрыть значки в строке состояния", "Hide Status Bar Icons"),
+                title = tr("Скрыть значки уведомлений", "Hide App Notification Icons"),
                 subtitle = tr(
-                    "Скрывает значки уведомлений и системные иконки в статус-баре для чистого экрана.",
-                    "Hides notification and system icons in the status bar for a clean display."
+                    "Скрывает значки уведомлений приложений слева в строке состояния, оставляя часы, батарею и сеть.",
+                    "Hides app notification icons on the left of the status bar, keeping clock, battery, and network icons visible."
                 ),
                 checked = isStatusBarHidden,
                 color = Tile.Blue,
