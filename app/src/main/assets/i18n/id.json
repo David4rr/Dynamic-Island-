@@ -586,5 +586,18 @@
 "{0}. Also the glowing dot of the flashlight and navigation": "{0}. Juga titik bercahaya senter dan navigasi",
 "“Battery low” — the Battery channel. Some firmwares don't let you change it": "“Baterai lemah” — saluran Baterai. Beberapa firmware tidak mengizinkan mengubahnya",
 "“Paid” on screen, but amounts: {0}": "“Dibayar” di layar, tapi jumlahnya: {0}",
-"“Set a timer for 5 minutes” from an assistant or widget can go to the island": "“Pasang timer 5 menit” dari asisten atau widget bisa masuk ke pulau"
+"“Set a timer for 5 minutes” from an assistant or widget can go to the island": "“Pasang timer 5 menit” dari asisten atau widget bisa masuk ke pulau",
+"Automatic via Shizuku (Recommended)": "Otomatis via Shizuku (Disarankan)",
+"Shizuku Service": "Layanan Shizuku",
+"Shizuku not running — tap to open": "Layanan Shizuku belum jalan — ketuk untuk buka",
+"Permission needed — tap to grant": "Izin diperlukan — ketuk untuk berikan",
+"Service is active and ready ✓": "Layanan aktif dan siap digunakan ✓",
+"Active ✓": "Aktif ✓",
+"Needed": "Perlu izin",
+"Block System Pop-Up Banners": "Blokir Pop-Up Banner Sistem",
+"Disables default system pop-up banners (heads_up_notifications_enabled 0). Only the island will show them.": "Menonaktifkan banner pop-up putih bawaan sistem (heads_up_notifications_enabled 0). Hanya pulau yang akan menampilkannya.",
+"Hide Status Bar Icons": "Sembunyikan Ikon Status Bar",
+"Hides notification and system icons in the status bar for a clean display.": "Sembunyikan ikon notifikasi dan sistem di status bar untuk tampilan bersih.",
+"Copy ADB Command": "Salin Perintah ADB",
+"Or configure apps manually: tap an app below and turn off “Pop on screen”. The notification stays in the shade, and only the island shows the event on screen.": "Atau atur aplikasi secara manual: ketuk aplikasi di bawah dan matikan \"Tampilkan di layar\". Notifikasi tetap ada di laci, dan hanya pulau yang menampilkannya di layar."
 }
