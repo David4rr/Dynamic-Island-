@@ -6,6 +6,12 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.2] — 2026-10-29
+
+### 🐛 Fixes
+- 🛠️ **Fixed Biometric Dialog Loop**: Fixed an issue where the biometric style selection dialog would automatically trigger on entering Events and could not be dismissed.
+- 🔑 **Persistent Fork Signing Key**: Replaced ephemeral CI debug keystore with a permanent keystore to prevent future update signature conflicts.
+
 ## [1.7.1] — 2026-10-29
 
 ### 🍏 Apple-Style Biometric Authentication

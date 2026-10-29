@@ -121,7 +121,7 @@ fun EventsScreen(onBack: () -> Unit) {
                 s.evBiometric, color = Tile.Teal) { set { copy(evBiometric = it) } }
             if (s.evBiometric) {
                 GroupItem(Pos.Middle, Icons.Rounded.Face, tr("Стиль биометрии", "Biometric style"), s.biometricMode.title,
-                    color = Tile.Teal) { biometricDialog = true }
+                    color = Tile.Teal, onClick = { biometricDialog = true })
             }
             GroupToggle(Pos.Middle, Icons.Rounded.Lock, tr("Замок на экране блокировки", "Lock on the lock screen"),
                 tr("Пока телефон заблокирован, в капсуле замок", "While the phone is locked, the capsule shows a lock"),
@@ -131,8 +131,17 @@ fun EventsScreen(onBack: () -> Unit) {
                 s.evUnlock, color = Tile.Purple) { set { copy(evUnlock = it) } }
         }
         if (biometricDialog) {
-            ChoiceDialog(tr("Стиль биометрии", "Biometric style"), BiometricMode.entries, s.biometricMode, { it.title },
-                { v -> SettingsRepo.update { copy(biometricMode = v) } }) { biometricDialog = false }
+            ChoiceDialog(
+                title = tr("Стиль биометрии", "Biometric style"),
+                options = BiometricMode.entries,
+                selected = s.biometricMode,
+                label = { it.title },
+                onPick = { v ->
+                    SettingsRepo.update { copy(biometricMode = v) }
+                    biometricDialog = false
+                },
+                onDismiss = { biometricDialog = false },
+            )
         }
     }
 }
