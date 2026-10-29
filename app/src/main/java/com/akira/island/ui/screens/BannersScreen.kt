@@ -5,17 +5,29 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BatteryAlert
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChatBubble
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -25,11 +37,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.akira.island.core.tr
 import com.akira.island.data.SettingsRepo
+import com.akira.island.service.ShizukuHelper
 import com.akira.island.service.SystemBanners
 import com.akira.island.ui.Group
 import com.akira.island.ui.GroupItem
+import com.akira.island.ui.GroupToggle
 import com.akira.island.ui.Page
 import com.akira.island.ui.Pos
+import rikka.shizuku.Shizuku
 import com.akira.island.ui.SectionHeader
 import com.akira.island.ui.Tile
 import com.akira.island.ui.Ui
@@ -43,6 +58,7 @@ import com.akira.island.ui.posOf
 @Composable
 fun BannersScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val seen by SystemBanners.seen.collectAsState()
     val calls = remember(seen) { SystemBanners.callApps(context, seen) }
     val clocks = remember(seen) { SystemBanners.clockApps(context, seen) }
@@ -50,21 +66,119 @@ fun BannersScreen(onBack: () -> Unit) {
     val popUp by SystemBanners.popUp.collectAsState()
     val messengers = remember(s.msgChannels) { s.msgChannels.keys.sortedBy { SystemBanners.label(context, it).lowercase() } }
 
+    var isShizukuAvailable by remember { mutableStateOf(ShizukuHelper.isShizukuAvailable()) }
+    var hasShizukuPermission by remember { mutableStateOf(ShizukuHelper.hasShizukuPermission()) }
+    var isHeadsUpDisabled by remember { mutableStateOf(ShizukuHelper.isHeadsUpNotificationsDisabled(context)) }
+    var isStatusBarHidden by remember { mutableStateOf(ShizukuHelper.isStatusBarIconsHidden(context)) }
+
+    fun refreshShizukuStatus() {
+        isShizukuAvailable = ShizukuHelper.isShizukuAvailable()
+        hasShizukuPermission = ShizukuHelper.hasShizukuPermission()
+        isHeadsUpDisabled = ShizukuHelper.isHeadsUpNotificationsDisabled(context)
+        isStatusBarHidden = ShizukuHelper.isStatusBarIconsHidden(context)
+    }
+
+    LaunchedEffect(Unit) {
+        refreshShizukuStatus()
+    }
+
+    DisposableEffect(Unit) {
+        val listener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+            hasShizukuPermission = grantResult == PackageManager.PERMISSION_GRANTED
+            refreshShizukuStatus()
+        }
+        runCatching { Shizuku.addRequestPermissionResultListener(listener) }
+        onDispose {
+            runCatching { Shizuku.removeRequestPermissionResultListener(listener) }
+        }
+    }
     Page(tr("Системные плашки", "System banners"), onBack) {
+        SectionHeader(tr("Блокировка через Shizuku (Рекомендуется)", "Automatic via Shizuku (Recommended)"))
+
+        Group {
+            GroupItem(
+                pos = Pos.First,
+                icon = Icons.Rounded.Bolt,
+                title = tr("Служба Shizuku", "Shizuku Service"),
+                subtitle = when {
+                    !isShizukuAvailable -> tr("Служба Shizuku не запущена — нажмите для открытия", "Shizuku not running — tap to open")
+                    !hasShizukuPermission -> tr("Требуется разрешение — нажмите для запроса", "Permission needed — tap to grant")
+                    else -> tr("Служба активна и готова к работе ✓", "Service is active and ready ✓")
+                },
+                color = when {
+                    isShizukuAvailable && hasShizukuPermission -> Tile.Green
+                    isShizukuAvailable -> Tile.Orange
+                    else -> Tile.Gray
+                },
+                badge = if (isShizukuAvailable && hasShizukuPermission) tr("Активен ✓", "Active ✓") else tr("Требуется", "Needed"),
+                onClick = {
+                    if (!isShizukuAvailable) {
+                        ShizukuHelper.openShizukuOrStore(context)
+                    } else if (!hasShizukuPermission) {
+                        ShizukuHelper.requestShizukuPermission()
+                    }
+                }
+            )
+
+            GroupToggle(
+                pos = Pos.Middle,
+                icon = Icons.Rounded.NotificationsOff,
+                title = tr("Блокировать всплывающие плашки", "Block System Pop-Up Banners"),
+                subtitle = tr(
+                    "Отключает стандартные белые баннеры системы (heads_up_notifications_enabled 0). События показывает только остров.",
+                    "Disables default system pop-up banners (heads_up_notifications_enabled 0). Only the island will show them."
+                ),
+                checked = isHeadsUpDisabled,
+                color = Tile.Red,
+                onChange = { disabled ->
+                    ShizukuHelper.setHeadsUpNotificationsDisabled(context, disabled) {
+                        refreshShizukuStatus()
+                    }
+                }
+            )
+
+            GroupToggle(
+                pos = Pos.Middle,
+                icon = Icons.Rounded.VisibilityOff,
+                title = tr("Скрыть значки в строке состояния", "Hide Status Bar Icons"),
+                subtitle = tr(
+                    "Скрывает значки уведомлений и системные иконки в статус-баре для чистого экрана.",
+                    "Hides notification and system icons in the status bar for a clean display."
+                ),
+                checked = isStatusBarHidden,
+                color = Tile.Blue,
+                onChange = { hidden ->
+                    ShizukuHelper.setSystemStatusBarIconsHidden(context, hidden) {
+                        refreshShizukuStatus()
+                    }
+                }
+            )
+
+            GroupItem(
+                pos = Pos.Last,
+                icon = Icons.Rounded.ContentCopy,
+                title = tr("Команда ADB (если без Shizuku)", "Copy ADB Command"),
+                subtitle = "settings put global heads_up_notifications_enabled 0",
+                color = Tile.Gray,
+                onClick = {
+                    clipboardManager.setText(AnnotatedString("settings put global heads_up_notifications_enabled 0"))
+                    Toast.makeText(context, "Perintah ADB berhasil disalin!", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
         Box(
-            Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(24.dp)).background(Ui.Card)
+            Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(24.dp)).background(Ui.Card)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             Text(
                 tr(
-                    "Android показывает свои всплывающие плашки поверх острова, и запретить их стороннему приложению система не даёт. " +
-                        "Нажмите на приложение и выключите «Всплывающие уведомления» (на некоторых телефонах — «Показывать поверх других» " +
-                        "или «Баннеры»). Уведомление останется в шторке, а на экране событие покажет только остров.",
-                    "Android shows its own pop-up banners on top of the island, and the system doesn't let a third-party app " +
-                        "block them. Tap an app and turn off “Pop on screen” (on some phones — “Show on top” or “Banners”). The " +
-                        "notification stays in the shade, and only the island shows the event on screen.",
+                    "Или настройте приложения вручную: нажмите на приложение ниже и выключите «Всплывающие уведомления». " +
+                        "Уведомление останется в шторке, а на экране событие покажет только остров.",
+                    "Or configure apps manually: tap an app below and turn off “Pop on screen”. " +
+                        "The notification stays in the shade, and only the island shows the event on screen.",
                 ),
-                color = Ui.Sub, fontSize = 15.sp, lineHeight = 20.sp,
+                color = Ui.Sub, fontSize = 14.sp, lineHeight = 19.sp,
             )
         }
 

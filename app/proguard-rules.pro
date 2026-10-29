@@ -7,3 +7,7 @@
 -keepclasseswithmembers class com.akira.island.data.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Shizuku
+-keep class rikka.shizuku.** { *; }
+-keep interface rikka.shizuku.** { *; }

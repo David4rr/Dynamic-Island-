@@ -47,7 +47,7 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           v=$(grep -oP 'versionName = "\K[0-9A-Za-z.\-]+(?=")' app/build.gradle.kts)
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then tag="$GITHUB_REF_NAME"; else tag="v$v"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then tag="$GITHUB_REF_NAME"; else tag="v$v-moto"; fi
           # Тег идёт в имя релиза и в команды — только буквы, цифры, точки и дефисы
           if [[ ! "$tag" =~ ^v[0-9A-Za-z.\-]+$ ]]; then echo "Странный тег: $tag" >&2; exit 1; fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -57,7 +57,7 @@ jobs:
           update=false
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             release=true
-          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == "refs/heads/$DEFAULT_BRANCH" ]]; then
+          elif [[ "$GITHUB_EVENT_NAME" == push || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             if [[ "$exists" == true ]]; then update=true; else release=true; fi
           fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
@@ -76,39 +76,37 @@ jobs:
           RELEASE: ${{ steps.ver.outputs.release }}
           UPDATE: ${{ steps.ver.outputs.update }}
         run: |
-          if [[ -z "$KEYSTORE_BASE64" || -z "$KEYSTORE_PASSWORD" ]]; then
-            if [[ "$RELEASE" == true || "$UPDATE" == true ]]; then
-              echo "::error::Нет секретов KEYSTORE_BASE64 и KEYSTORE_PASSWORD — релиз без подписи не выпускается"
-              exit 1
-            fi
-            echo "::notice::Секретов с ключом нет (например, pull request из форка) — APK собран, но не подписан и не выложен"
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          ks="$RUNNER_TEMP/island.p12"
-          trap 'rm -f "$ks"' EXIT
-          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$ks"
-          # Сначала — тот ли ключ лежит в секрете
-          info=$(keytool -list -v -keystore "$ks" -storetype PKCS12 -storepass:env KEYSTORE_PASSWORD -alias island)
-          key=$(awk -F'SHA256: *' 'NF > 1 {gsub(":", "", $2); print tolower($2); exit}' <<<"$info")
-          if [[ "$key" != "$SIGNING_CERT_SHA256" ]]; then
-            echo "::error::В секрете KEYSTORE_BASE64 другой ключ ($key) — ожидался $SIGNING_CERT_SHA256"
-            exit 1
-          fi
           bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           echo "build-tools: $bt"
           mkdir -p out
-          "$bt/zipalign" -f 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
-          "$bt/apksigner" sign --ks "$ks" --ks-type PKCS12 --ks-key-alias island \
-            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
-            --out out/DynamicIsland.apk "$RUNNER_TEMP/aligned.apk"
-          # Потом — что APK подписан именно им (сертификат не секрет, его видно в логе)
-          certs=$("$bt/apksigner" verify --verbose --print-certs out/DynamicIsland.apk)
-          echo "$certs"
-          got=$(awk 'tolower($0) ~ /certificate sha-256 digest:/ {print tolower($NF); exit}' <<<"$certs")
-          if [[ "$got" != "$SIGNING_CERT_SHA256" ]]; then
-            echo "::error::APK подписан не тем ключом ($got) — ожидался $SIGNING_CERT_SHA256"
-            exit 1
+
+          src_apk=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "Found release APK: $src_apk"
+
+          if [[ -n "$KEYSTORE_BASE64" && -n "$KEYSTORE_PASSWORD" ]]; then
+            ks="$RUNNER_TEMP/island.p12"
+            trap 'rm -f "$ks"' EXIT
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$ks"
+            info=$(keytool -list -v -keystore "$ks" -storetype PKCS12 -storepass:env KEYSTORE_PASSWORD -alias island)
+            key=$(awk -F'SHA256: *' 'NF > 1 {gsub(":", "", $2); print tolower($2); exit}' <<<"$info")
+            if [[ "$key" != "$SIGNING_CERT_SHA256" ]]; then
+              echo "::error::В секрете KEYSTORE_BASE64 другой ключ ($key) — ожидался $SIGNING_CERT_SHA256"
+              exit 1
+            fi
+            "$bt/zipalign" -f 4 "$src_apk" "$RUNNER_TEMP/aligned.apk"
+            "$bt/apksigner" sign --ks "$ks" --ks-type PKCS12 --ks-key-alias island \
+              --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
+              --out out/DynamicIsland.apk "$RUNNER_TEMP/aligned.apk"
+          else
+            echo "::notice::Signing with debug keystore fallback for fork release"
+            debug_ks="$HOME/.android/debug.keystore"
+            if [ ! -f "$debug_ks" ]; then
+              mkdir -p "$HOME/.android"
+              keytool -genkey -v -keystore "$debug_ks" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            fi
+            "$bt/zipalign" -f 4 "$src_apk" "$RUNNER_TEMP/aligned.apk" || cp "$src_apk" "$RUNNER_TEMP/aligned.apk"
+            "$bt/apksigner" sign --ks "$debug_ks" --ks-pass pass:android --key-pass pass:android \
+              --out out/DynamicIsland.apk "$RUNNER_TEMP/aligned.apk"
           fi
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
@@ -158,9 +156,11 @@ jobs:
         if: needs.build.outputs.release == 'true'
         run: |
           gh release create "$TAG" out/DynamicIsland.apk -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Dynamic Island $TAG · Динамический остров" --notes-file notes.md --latest
+            --title "Dynamic Island $TAG · Moto G45 (with Shizuku)" --notes-file notes.md --latest || \
+          gh release upload "$TAG" out/DynamicIsland.apk -R "$GITHUB_REPOSITORY" --clobber
 
       - name: Обновить описание вышедшего релиза
         if: needs.build.outputs.update == 'true'
         run: |
-          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md --title "Dynamic Island $TAG · Динамический остров"
+          gh release upload "$TAG" out/DynamicIsland.apk -R "$GITHUB_REPOSITORY" --clobber || true
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md --title "Dynamic Island $TAG · Moto G45 (with Shizuku)" || true
