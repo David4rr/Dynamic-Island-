@@ -570,6 +570,7 @@ class IslandService : AccessibilityService() {
     /** Пока открыт ввод ответа: клавиатуру спрятали («Назад») — ввод закрывается, как в шторке. */
     private fun onWindowsChanged() {
         checkUnlock()
+        BiometricMonitor.onWindowsChanged(this)
         if (IslandBus.reply.value == null) return
         if (keyboardShown()) {
             keyboardSeen = true

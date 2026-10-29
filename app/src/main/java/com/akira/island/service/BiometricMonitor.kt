@@ -1,9 +1,11 @@
 package com.akira.island.service
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.akira.island.R
 import com.akira.island.core.BiometricInfo
 import com.akira.island.core.BiometricStatus
@@ -15,77 +17,191 @@ import com.akira.island.core.tr
 import com.akira.island.data.BiometricMode
 import com.akira.island.data.SettingsRepo
 import com.akira.island.island.Ios
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Отслеживание биометрической аутентификации (BiometricPrompt и разблокировка экрана):
- * - Ловит диалоги сканирования лица и пальца из com.android.systemui.
- * - Показывает сканирование в острове и подтверждение при успехе.
+ * Pemantau Otentikasi Biometrik Apple (Face ID & Touch ID):
+ * - Mendeteksi App Lock (WhatsApp, Telegram, Perbankan, dll.) & System BiometricPrompt.
+ * - Menampilkan animasi pemindaian dinamis di Dynamic Island dan morphing ke CheckBadge hijau.
  */
 object BiometricMonitor {
 
-    private var activePrompt = false
-    private var activePkg: String? = null
-    private var isFaceActive = true
-    private var promptShownTime = 0L
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var biometricJob: Job? = null
     private var demoJob: Job? = null
+
+    private var activePrompt = false
+    private var promptPkg: String? = null
+    private var promptCls: String? = null
+    private var promptStartTime = 0L
+    private var isFaceActive = true
+    private var lastSuccessTime = 0L
     private var lastUnlockTime = 0L
 
-    /** Проверяет, относится ли событие com.android.systemui к биометрии. */
-    fun isBiometricEvent(event: AccessibilityEvent): Boolean {
-        val cls = event.className?.toString().orEmpty()
-        return cls.contains("AuthContainerView", ignoreCase = true) ||
-            cls.contains("AuthBiometric", ignoreCase = true) ||
-            cls.contains("BiometricPrompt", ignoreCase = true) ||
-            cls.contains("FingerprintDialog", ignoreCase = true) ||
-            cls.contains("BiometricDialog", ignoreCase = true) ||
-            cls.contains("FingerprintView", ignoreCase = true)
+    private val SYSTEM_SECURITY_PKGS = setOf(
+        "com.android.systemui",
+        "com.samsung.android.biometrics.app.setting",
+        "com.miui.securityadd",
+        "com.miui.securitycenter",
+        "com.coloros.safecenter",
+        "com.oplus.safecenter",
+        "com.vivo.permissionmanager",
+    )
+
+    private val BIO_CLASSES = listOf(
+        "AppAuthentication",
+        "FingerprintDialog",
+        "BiometricPrompt",
+        "AuthContainer",
+        "AuthBiometric",
+        "BiometricDialog",
+        "FingerprintView",
+        "AppLock",
+        "PasscodeActivity",
+        "FingerprintActivity",
+        "BiometricActivity",
+        "FingerprintHelper",
+    )
+
+    private val BIO_KEYWORDS = listOf(
+        "fingerprint", "biometric", "face unlock", "touch sensor", "sentuh sensor",
+        "sidik jari", "biometrik", "verifikasi identitas", "whatsapp dikunci",
+        "whatsapp locked", "buka kunci", "kunci aplikasi", "отпечаток", "биометр",
+        "confirm your fingerprint", "verify your identity", "touch the fingerprint sensor",
+    )
+
+    fun isSystemPackage(pkg: String): Boolean = pkg in SYSTEM_SECURITY_PKGS
+
+    private fun hasKeyword(text: String): Boolean {
+        if (text.isBlank()) return false
+        val lower = text.lowercase()
+        return BIO_KEYWORDS.any { it in lower }
     }
 
-    /** Вызывается из IslandService при изменении состояния окон */
+    private fun eventHasBioText(event: AccessibilityEvent): Boolean {
+        val desc = event.contentDescription?.toString().orEmpty()
+        if (hasKeyword(desc)) return true
+        for (t in event.text) {
+            if (hasKeyword(t.toString())) return true
+        }
+        return false
+    }
+
+    private fun sourceHasBio(source: AccessibilityNodeInfo?): Boolean {
+        if (source == null) return false
+        val id = source.viewIdResourceName?.lowercase().orEmpty()
+        if (id.contains("biometric") || id.contains("fingerprint") || id.contains("auth_container")) return true
+        val text = source.text?.toString().orEmpty()
+        if (hasKeyword(text)) return true
+        val desc = source.contentDescription?.toString().orEmpty()
+        if (hasKeyword(desc)) return true
+        for (i in 0 until minOf(source.childCount, 8)) {
+            val child = source.getChild(i) ?: continue
+            val childId = child.viewIdResourceName?.lowercase().orEmpty()
+            val childText = child.text?.toString().orEmpty()
+            if (childId.contains("biometric") || childId.contains("fingerprint") || hasKeyword(childText)) return true
+        }
+        return false
+    }
+
+    fun isBiometricEvent(pkg: String, cls: String, event: AccessibilityEvent): Boolean {
+        // 1. Class name matches known app lock / biometric prompt classes (e.g. WhatsApp AppAuthenticationActivity)
+        if (BIO_CLASSES.any { cls.contains(it, ignoreCase = true) }) return true
+
+        // 2. System UI or security package with dialog/container/text
+        if (isSystemPackage(pkg)) {
+            if (cls.contains("Dialog", ignoreCase = true) || cls.contains("Auth", ignoreCase = true) ||
+                cls.contains("Biometric", ignoreCase = true) || cls.contains("Frame", ignoreCase = true)
+            ) {
+                if (eventHasBioText(event) || sourceHasBio(event.source)) return true
+            }
+        }
+
+        // 3. Any app window that explicitly displays biometric lock keywords
+        if (eventHasBioText(event) || sourceHasBio(event.source)) return true
+
+        return false
+    }
+
+    fun isLauncher(context: Context, pkg: String): Boolean {
+        if (pkg.contains("launcher", ignoreCase = true) || pkg.contains("home", ignoreCase = true)) return true
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolve = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolve?.activityInfo?.packageName == pkg
+    }
+
     fun onWindowState(event: AccessibilityEvent, context: Context) {
         val s = SettingsRepo.current
         if (!s.enabled || !s.evBiometric) return
 
         val pkg = event.packageName?.toString().orEmpty()
         val cls = event.className?.toString().orEmpty()
+        if (pkg.isBlank()) return
 
-        if (pkg == "com.android.systemui" && isBiometricEvent(event)) {
+        val isBio = isBiometricEvent(pkg, cls, event)
+
+        if (isBio) {
             if (!activePrompt) {
                 activePrompt = true
-                promptShownTime = SystemClock.elapsedRealtime()
-                activePkg = IslandBus.foregroundPackage.value
+                promptStartTime = SystemClock.elapsedRealtime()
+                promptPkg = if (isSystemPackage(pkg)) (IslandBus.foregroundPackage.value ?: pkg) else pkg
+                promptCls = cls
 
                 val mode = s.biometricMode
+                val textLower = (event.text.joinToString(" ") + " " + cls).lowercase()
                 isFaceActive = when (mode) {
                     BiometricMode.FACE -> true
                     BiometricMode.FINGERPRINT -> false
-                    BiometricMode.AUTO -> "face" in cls.lowercase()
+                    BiometricMode.AUTO -> "face" in textLower || "wajah" in textLower || "muka" in textLower
                 }
 
-                val appName = activePkg?.let { getAppName(context, it) }
+                val appName = promptPkg?.let { getAppName(context, it) }
                 showScanning(context, isFaceActive, appName)
             }
             return
         }
 
-        // Если диалог биометрии закрылся и фокус вернулся в приложение — аутентификация прошла успешно
-        if (activePrompt && pkg.isNotBlank() && pkg != "com.android.systemui") {
-            val elapsed = SystemClock.elapsedRealtime() - promptShownTime
-            activePrompt = false
-            // Если диалог пробыл на экране хотя бы 300мс перед уходом — считаем успехом
-            if (elapsed > 300) {
-                val appName = activePkg?.let { getAppName(context, it) }
-                showSuccess(context, isFaceActive, appName)
-            } else {
-                IslandBus.notice.value = null
+        // Jika sebelumnya sedang prompt aktif:
+        if (activePrompt) {
+            val elapsed = SystemClock.elapsedRealtime() - promptStartTime
+            val sameApp = (pkg == promptPkg)
+            val dialogClosed = isSystemPackage(promptCls.orEmpty()) && !isSystemPackage(pkg)
+
+            if (isLauncher(context, pkg)) {
+                // Pengguna keluar / membatalkan ke Home
+                cancelPrompt()
+            } else if ((sameApp && cls != promptCls) || dialogClosed) {
+                // Otentikasi sukses! WhatsApp/aplikasi berpindah ke tampilan utama
+                if (elapsed > 200) {
+                    val appName = promptPkg?.let { getAppName(context, it) }
+                    showSuccess(context, isFaceActive, appName)
+                } else {
+                    cancelPrompt()
+                }
+                activePrompt = false
             }
         }
     }
 
-    /** Вызывается, когда экран разблокировали биометрией */
+    fun onWindowsChanged(context: Context) {
+        if (!activePrompt) return
+        val elapsed = SystemClock.elapsedRealtime() - promptStartTime
+        if (elapsed > 350) {
+            val fg = IslandBus.foregroundPackage.value
+            if (fg != null && fg == promptPkg && !isLauncher(context, fg)) {
+                // Jendela biometric ditutup dan aplikasi kembali aktif
+                activePrompt = false
+                val appName = promptPkg?.let { getAppName(context, it) }
+                showSuccess(context, isFaceActive, appName)
+            }
+        }
+    }
+
     fun onUnlockBiometric(context: Context) {
         val s = SettingsRepo.current
         if (!s.enabled || !s.evBiometric) return
@@ -98,14 +214,16 @@ object BiometricMonitor {
         showSuccess(context, isFace, tr("Разблокировано", "Unlocked"))
     }
 
-    private fun showScanning(context: Context, isFace: Boolean, appName: String?) {
+    fun showScanning(context: Context, isFace: Boolean, appName: String?) {
+        biometricJob?.cancel()
         val title = if (isFace) "Face ID" else "Touch ID"
         val state = tr("Сканирование...", "Scanning...")
         IslandBus.post(
             Notice(
                 title = title,
                 state = state,
-                icon = Ios.load(context, if (isFace) R.drawable.ios_lock_closed else R.drawable.ios_checkmark_circle),
+                caption = appName,
+                icon = Ios.load(context, R.drawable.ios_lock_closed),
                 tint = Tints.Teal,
                 style = NoticeStyle.BIOMETRIC,
                 biometric = BiometricInfo(
@@ -113,48 +231,62 @@ object BiometricMonitor {
                     isFace = isFace,
                     appName = appName,
                 ),
-                extraMs = 4_000L,
+                extraMs = 7_000L,
             ),
         )
     }
 
-    private fun showSuccess(context: Context, isFace: Boolean, captionText: String?) {
-        val title = if (isFace) "Face ID" else "Touch ID"
-        val verified = tr("Успешно", "Verified")
-        IslandBus.post(
-            Notice(
-                title = title,
-                state = verified,
-                caption = captionText,
-                icon = Ios.load(context, R.drawable.ios_checkmark_circle),
-                tint = Tints.Green,
-                style = NoticeStyle.BIOMETRIC,
-                biometric = BiometricInfo(
-                    status = BiometricStatus.SUCCESS,
-                    isFace = isFace,
-                    appName = captionText,
+    fun showSuccess(context: Context, isFace: Boolean, appName: String?) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastSuccessTime < 1_500) return
+        lastSuccessTime = now
+
+        biometricJob?.cancel()
+        biometricJob = scope.launch {
+            // Hilangkan notice scanning seketika agar notice sukses langsung muncul
+            IslandBus.notice.value = null
+            delay(35)
+            val title = if (isFace) "Face ID" else "Touch ID"
+            val verified = tr("Успешно", "Verified")
+            IslandBus.post(
+                Notice(
+                    title = title,
+                    state = verified,
+                    caption = appName,
+                    icon = Ios.load(context, R.drawable.ios_checkmark_circle),
+                    tint = Tints.Green,
+                    style = NoticeStyle.BIOMETRIC,
+                    biometric = BiometricInfo(
+                        status = BiometricStatus.SUCCESS,
+                        isFace = isFace,
+                        appName = appName,
+                    ),
+                    extraMs = 200L,
                 ),
-                extraMs = 900L,
-            ),
-        )
+            )
+        }
     }
 
-    /** Демо-проверка для экрана настроек и проверки острова */
+    fun cancelPrompt() {
+        activePrompt = false
+        biometricJob?.cancel()
+        IslandBus.notice.value = null
+    }
+
     fun demo(context: Context, isFace: Boolean) {
         demoJob?.cancel()
-        demoJob = IslandBus.scope.launch {
-            val appTitle = tr("Остров", "Island")
-            showScanning(context, isFace, appTitle)
-            delay(1200)
-            showSuccess(context, isFace, appTitle)
+        demoJob = scope.launch {
+            showScanning(context, isFace, "WhatsApp")
+            delay(1400)
+            showSuccess(context, isFace, "WhatsApp")
         }
     }
 
     private fun getAppName(context: Context, packageName: String): String {
         return runCatching {
             val pm = context.packageManager
-            val info = pm.getApplicationInfo(packageName, 0)
-            pm.getApplicationLabel(info).toString()
-        }.getOrNull() ?: packageName
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(appInfo).toString()
+        }.getOrDefault(packageName)
     }
 }

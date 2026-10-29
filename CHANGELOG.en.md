@@ -6,6 +6,12 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.3] — 2026-10-29
+
+### 🍏 WhatsApp & In-App Lock Biometric Support
+- 💬 **WhatsApp & In-App Biometric Lock**: Full detection for WhatsApp fingerprint/face lock (`AppAuthenticationActivity`), banking app locks, Telegram passcode, and system app locks.
+- ⚡ **Instant Scanning to Verified Morph**: Island instantly displays Face ID or Touch ID laser sweep animation when WhatsApp lock appears, morphing directly into a green `CheckBadge` with tactile haptics as soon as authentication succeeds.
+
 ## [1.7.2] — 2026-10-29
 
 ### 🐛 Fixes
