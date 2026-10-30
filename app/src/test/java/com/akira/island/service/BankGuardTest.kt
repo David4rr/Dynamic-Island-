@@ -1,6 +1,7 @@
 package com.akira.island.service
 
 import android.content.ContextWrapper
+import com.akira.island.data.SettingsRepo
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -17,38 +18,79 @@ class BankGuardTest {
     @Before
     fun setUp() {
         BankGuard.clearCache()
+        SettingsRepo.update {
+            copy(
+                customBankingApps = emptySet(),
+                bankingAppExclusions = emptySet()
+            )
+        }
     }
 
     @Test
-    fun testIndonesianBankingAppsDetected() {
-        val indoBanks = listOf(
+    fun testSeaBankAndIndonesianBanksDetected() {
+        val seaBankAndIndoBanks = listOf(
+            // SeaBank variations (Indonesia, PH, VN)
+            "id.co.bankbkemobile.digitalbank",
+            "ph.seabank.seabank",
+            "vn.com.seabank.mb1",
+
+            // BCA
             "com.bca",
             "id.co.bca.mybca",
             "com.bca.klikbca",
+            "com.bcas.mobile",
+
+            // Mandiri, BRI, BNI
             "id.bmri.livin",
             "id.co.bankmandiri.mandirionline",
             "id.co.bri.brimo",
             "id.co.bni.wondr",
             "src.com.bni",
+
+            // Private & Digital Banks
             "id.co.cimbniaga.octomobile",
             "com.jago.digitalbanking",
-            "com.btpn.dc",
-            "com.seabank.id",
+            "com.btpn.dc", // Jenius
             "id.allobank.mobile",
-            "id.co.permatabank.mobile",
-            "com.danamon.dbank",
+            "com.linecorp.linebank.id",
+            "com.superbank.id",
+            "id.co.superbank",
+            "com.bankneo.neobank",
+            "com.krom.bank",
+            "id.co.aladinbank",
+            "com.amarbank.tunaiku",
+            "com.muamalat.din",
             "id.co.bsi.mobile",
             "id.co.btn.mobile",
+            "com.danamon.dbank",
+            "com.danamon.dbankreg",
+            "id.co.permatabank.mobile",
             "com.panin.mobile",
-            "com.bankneo.neobank",
+            "com.bankmega.msmile",
+
+            // BPDs
+            "id.co.bankbjb.digi",
+            "com.bankdki.jakone",
+            "com.bankjatim.jconnect",
+            "com.bankjateng.bima",
+            "com.banknagari.ollin",
+            "id.co.bpddiy.mobile",
+            "id.co.banksumut.mobile",
+            "id.co.bankkalbar.mobile",
+
+            // Wallets & Fintech
             "id.dana",
             "com.telkom.mwallet",
             "com.shopeepay.id",
             "ovo.id",
-            "com.gojek.app"
+            "com.gojek.app",
+            "com.gopay.wallet",
+            "com.astrapay.android",
+            "com.kredivo",
+            "com.akulaku"
         )
-        for (pkg in indoBanks) {
-            assertTrue("Expected Indonesian bank/wallet $pkg to be detected", BankGuard.isBankingApp(context, pkg))
+        for (pkg in seaBankAndIndoBanks) {
+            assertTrue("Expected bank/wallet $pkg to be detected", BankGuard.isBankingApp(context, pkg))
         }
     }
 
@@ -72,7 +114,9 @@ class BankGuardTest {
             "com.wf.wellsfargomobile",
             "com.infonow.bofa",
             "com.citi.citimobile",
-            "com.barclays.android.barclaysmobilebanking"
+            "com.barclays.android.barclaysmobilebanking",
+            "com.globe.gcash.android",
+            "com.voyagerinnovation.paymaya"
         )
         for (pkg in globalBanks) {
             assertTrue("Expected global bank/wallet $pkg to be detected", BankGuard.isBankingApp(context, pkg))
@@ -80,15 +124,18 @@ class BankGuardTest {
     }
 
     @Test
-    fun testRegexPatternMatches() {
-        val regexBanks = listOf(
+    fun testDynamicPatternMatches() {
+        val dynamicBanks = listOf(
             "com.example.mobilebank",
             "net.regional.banking",
             "com.innovative.fintech",
-            "org.community.mbanking"
+            "org.community.mbanking",
+            "com.unknown.digitalbank",
+            "id.co.randomruralbank.app",
+            "com.custom.ewallet"
         )
-        for (pkg in regexBanks) {
-            assertTrue("Expected regex pattern match for $pkg", BankGuard.isBankingApp(context, pkg))
+        for (pkg in dynamicBanks) {
+            assertTrue("Expected dynamic pattern match for $pkg", BankGuard.isBankingApp(context, pkg))
         }
     }
 
@@ -109,6 +156,25 @@ class BankGuardTest {
     }
 
     @Test
+    fun testUserCustomBankingAppsAndExclusions() {
+        val customApp = "com.obscure.cooperative"
+        assertFalse(BankGuard.isBankingApp(context, customApp))
+
+        // Add custom app
+        SettingsRepo.update { copy(customBankingApps = setOf(customApp)) }
+        BankGuard.clearCache()
+        assertTrue("Custom app must be detected when added", BankGuard.isBankingApp(context, customApp))
+
+        // Exclude a bank
+        val seaBank = "id.co.bankbkemobile.digitalbank"
+        assertTrue(BankGuard.isBankingApp(context, seaBank))
+
+        SettingsRepo.update { copy(bankingAppExclusions = setOf(seaBank)) }
+        BankGuard.clearCache()
+        assertFalse("Excluded bank must return false", BankGuard.isBankingApp(context, seaBank))
+    }
+
+    @Test
     fun testBoundaryAndAdversarialInputs() {
         assertFalse("Null package must return false", BankGuard.isBankingApp(context, null))
         assertFalse("Empty package must return false", BankGuard.isBankingApp(context, ""))
@@ -126,11 +192,9 @@ class BankGuardTest {
     fun testCachingAndClearCache() {
         val testPkg = "id.co.bri.brimo"
         assertTrue(BankGuard.isBankingApp(context, testPkg))
-        // Second call hits cache
         assertTrue(BankGuard.isBankingApp(context, testPkg))
 
         BankGuard.clearCache()
-        // Repopulate
         assertTrue(BankGuard.isBankingApp(context, testPkg))
     }
 }

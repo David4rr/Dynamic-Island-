@@ -15,12 +15,15 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
 import com.akira.island.R
 import com.akira.island.core.Controls
 import com.akira.island.core.IslandBus
 import com.akira.island.core.tr
 import com.akira.island.data.SettingsRepo
+import com.akira.island.service.BankGuard
+import com.akira.island.service.BankingAppInfo
 import com.akira.island.service.IslandTile
 import com.akira.island.ui.Group
 import com.akira.island.ui.GroupItem
@@ -31,16 +34,16 @@ import com.akira.island.ui.Pos
 import com.akira.island.ui.Screen
 import com.akira.island.ui.SectionHeader
 import com.akira.island.ui.Tile
-/**
- * «Банк не пускает»: многие банки (K PLUS, GCash и другие) не открываются, пока включена служба спец. возможностей
- * не из Play Маркета, — так они защищаются от мошенников. Остров тут ни при чём, и обойти проверку изнутри него
- * нельзя: только выключить остров на время. Здесь — как сделать это одним нажатием и включить обратно.
- */
+import com.akira.island.ui.posOf
+
 @Composable
 fun BanksScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val running by IslandBus.serviceRunning.collectAsState()
     val s by SettingsRepo.state.collectAsState()
+    val detectedApps by produceState(initialValue = emptyList<BankingAppInfo>(), s.customBankingApps, s.bankingAppExclusions) {
+        value = BankGuard.getInstalledBankingApps(context)
+    }
 
     Page(
         tr("Банк не пускает", "Bank app won't open"), onBack,
@@ -51,8 +54,8 @@ fun BanksScreen(onBack: () -> Unit) {
     ) {
         InfoText(
             tr(
-                "Приложения банков блокируют службы спец. возможностей, если они запрашивают чтение экрана (canRetrieveWindowContent) или снимки экрана. В Dynamic Island эти опасные разрешения отключены (как у вашего лончера), а при открытии банка остров автоматически полностью скрывается.",
-                "Banking apps block accessibility services that request screen reading (canRetrieveWindowContent) or screenshots. Dynamic Island uses a clean security profile without these capabilities (just like your launcher), and automatically hides completely while banking apps are open."
+                "Приложения банков блокируют службы спец. возможностей, если они запрашивают чтение экрана или снимки экрана. В Dynamic Island эти разрешения отключены, а при открытии банка остров автоматически исчезает.",
+                "Banking apps block accessibility services requesting screen reading or screenshots. Dynamic Island uses a clean security profile without these capabilities and automatically vanishes while banking apps are open."
             )
         )
 
@@ -68,8 +71,36 @@ fun BanksScreen(onBack: () -> Unit) {
                 ),
                 checked = s.hideInBankingApps,
                 color = Tile.Green,
-                onChange = { v -> SettingsRepo.update { copy(hideInBankingApps = v) } }
+                onChange = { v ->
+                    SettingsRepo.update { copy(hideInBankingApps = v) }
+                    BankGuard.clearCache()
+                }
             )
+        }
+
+        if (detectedApps.isNotEmpty()) {
+            SectionHeader(tr("Обнаруженные банки и кошельки", "Detected banking & wallet apps"))
+            Group {
+                detectedApps.forEachIndexed { i, app ->
+                    val isHidden = !app.isExcluded
+                    GroupToggle(
+                        pos = posOf(i, detectedApps.size),
+                        icon = Icons.Rounded.AccountBalance,
+                        title = app.label,
+                        subtitle = if (isHidden) tr("Остров скрывается при открытии", "Island hides when opened")
+                        else tr("Исключено: остров не скрывается", "Excluded: island stays visible"),
+                        checked = isHidden,
+                        color = Tile.Blue,
+                        onChange = { checked ->
+                            SettingsRepo.update {
+                                if (checked) copy(bankingAppExclusions = bankingAppExclusions - app.packageName)
+                                else copy(bankingAppExclusions = bankingAppExclusions + app.packageName)
+                            }
+                            BankGuard.clearCache()
+                        }
+                    )
+                }
+            }
         }
 
         SectionHeader(tr("Управление службой", "Service controls"))
@@ -110,16 +141,15 @@ fun BanksScreen(onBack: () -> Unit) {
 /** Android 13+: система сама спрашивает, добавить ли плитку острова в шторку. */
 private fun addTile(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-    val bar = context.getSystemService(StatusBarManager::class.java) ?: return
-    runCatching {
-        bar.requestAddTileService(
-            ComponentName(context, IslandTile::class.java), context.getString(R.string.tile_label),
-            Icon.createWithResource(context, R.drawable.ic_tab_island), context.mainExecutor,
-        ) { result ->
-            if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) {
-                Toast.makeText(context, tr("Плитка уже в шторке", "The tile is already in quick settings"), Toast.LENGTH_SHORT).show()
-            }
+    val sm = context.getSystemService(StatusBarManager::class.java) ?: return
+    val cn = ComponentName(context, IslandTile::class.java)
+    sm.requestAddTileService(cn, context.getString(R.string.tile_label), Icon.createWithResource(context, R.drawable.ic_tab_island), context.mainExecutor) { res ->
+        val msg = when (res) {
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> tr("Плитка добавлена в шторку", "The tile was added to quick settings")
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> tr("Плитка уже есть в шторке", "The tile is already in quick settings")
+            else -> null
         }
+        if (msg != null) Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
     }
 }
 

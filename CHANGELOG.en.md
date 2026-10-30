@@ -6,6 +6,13 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.8.1] — 2026-10-30
+
+### 🏦 Dynamic Bank Detection & Complete SeaBank/BPD Compatibility
+- 🕵️ **Fully Dynamic Bank Detection**: Fixed regex limitations that previously missed compound package names like SeaBank (`id.co.bankbkemobile.digitalbank`), Superbank, Allo Bank, and regional BPDs. Multi-layer dynamic detection now checks package substrings, PackageManager app labels (e.g. "SeaBank", "Allo Bank", "BJB"), and Host APDU NFC payment services.
+- 📴 **Zero-Geometry Overlay Vanish**: When hiding in banking apps, `IslandService` moves display overlay window parameters completely off-screen (1×1 at -10,-10) in addition to `View.GONE`, eliminating all `FLAG_WINDOW_IS_OBSCURED` tapjacking triggers in strict banking apps.
+- 📋 **Detected Banking Apps List & Overrides**: Settings → Banks now dynamically lists all installed banking and payment apps with per-app toggles, plus custom app inclusion and exclusion lists.
+
 ## [1.8.0] — 2026-10-30
 
 ### 🏦 Banking App Anti-Blocking & Security Hardening

@@ -326,6 +326,10 @@ data class IslandSettings(
     val hideWhenPlayerOpen: Boolean = true,
     /** Остров автоматически скрывается в банковских приложениях во избежание блокировок и наложений */
     val hideInBankingApps: Boolean = true,
+    /** Пользовательские приложения, добавленные в список скрытия острова как банки */
+    val customBankingApps: Set<String> = emptySet(),
+    /** Приложения, исключенные пользователем из скрытия */
+    val bankingAppExclusions: Set<String> = emptySet(),
     /** «По расписанию»: остров виден только с [scheduleFrom] до [scheduleTo] часов (можно через полночь) */
     val scheduleOn: Boolean = false,
     val scheduleFrom: Int = 10,

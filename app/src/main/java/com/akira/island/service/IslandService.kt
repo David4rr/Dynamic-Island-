@@ -389,7 +389,13 @@ class IslandService : AccessibilityService() {
         val offset = dp(s.topOffset - ISLAND_PAD_DP)
         val p = displayParams
         val old = listOf(p.width, p.height, p.x, p.y, p.gravity)
-        if (rotation == 0) {
+        if (!visible) {
+            p.width = 1
+            p.height = 1
+            p.gravity = Gravity.TOP or Gravity.START
+            p.x = -10
+            p.y = -10
+        } else if (rotation == 0) {
             p.width = WindowManager.LayoutParams.MATCH_PARENT
             p.height = band
             p.gravity = Gravity.TOP or Gravity.START
