@@ -472,10 +472,11 @@ private fun IslandBody(
         primary is Act.Idle -> h / 2
         else -> activeHeight(s) / 2
     }
-    val useNotch = if (isBiometric) false else s.notch
+    val topCornerTarget = if (s.notch && !isBiometric) 0.dp else cornerTarget
     // Скругление читается при рисовании: кадр раскрытия перерисовывает рамку и стекло, а не пересобирает остров
-    val corner = animateDpAsState(cornerTarget, islandSpec(s), label = "corner")
-    val shape = remember(corner, useNotch) { AnimatedIslandShape(corner, useNotch) }
+    val topCorner = animateDpAsState(topCornerTarget, islandSpec(s), label = "topCorner")
+    val bottomCorner = animateDpAsState(cornerTarget, islandSpec(s), label = "bottomCorner")
+    val shape = remember(topCorner, bottomCorner) { AnimatedIslandShape(topCorner, bottomCorner) }
     val accent = (primary as? Act.MediaA)?.m?.accent
     val outlineColor = if (s.outlineFromArt && accent != null) accent else Color(s.outlineColor)
 
@@ -547,10 +548,10 @@ private fun IslandBody(
                 translationX = shake.value.dp.toPx()
                 transformOrigin = TransformOrigin(0.5f, 0f)
             }
-            .then(if (glowAlpha > 0f) Modifier.drawBehind { islandGlow(glowTint, glowAlpha, corner.value.toPx(), useNotch) } else Modifier)
+            .then(if (glowAlpha > 0f) Modifier.drawBehind { islandGlow(glowTint, glowAlpha, bottomCorner.value.toPx(), if (isBiometric) false else s.notch) } else Modifier)
             // Тень и обрезка по форме — одним слоем; форма на каждом кадре берётся из анимации скругления
             .graphicsLayer {
-                this.shape = islandShape(corner.value, useNotch)
+                this.shape = islandShape(topCorner.value, bottomCorner.value)
                 clip = true
                 when {
                     s.liquidGlass && !calibrating && !s.reduceEffects -> {
@@ -579,7 +580,7 @@ private fun IslandBody(
                 if (egg && !calibrating) {
                     Modifier.drawWithContent {
                         drawContent()
-                        eggRim(corner.value.toPx(), s.notch)
+                        eggRim(bottomCorner.value.toPx(), s.notch)
                     }
                 } else {
                     Modifier
@@ -928,10 +929,13 @@ fun islandShape(corner: Dp, s: IslandSettings): RoundedCornerShape = islandShape
 fun islandShape(corner: Dp, notch: Boolean): RoundedCornerShape =
     if (notch) RoundedCornerShape(0.dp, 0.dp, corner, corner) else RoundedCornerShape(corner)
 
+fun islandShape(topCorner: Dp, bottomCorner: Dp): RoundedCornerShape =
+    RoundedCornerShape(topStart = topCorner, topEnd = topCorner, bottomStart = bottomCorner, bottomEnd = bottomCorner)
+
 /** Форма острова со скруглением из анимации: рамка и стекло читают его при рисовании и обновляются без пересборки. */
-private class AnimatedIslandShape(private val corner: State<Dp>, private val notch: Boolean) : Shape {
+private class AnimatedIslandShape(private val topCorner: State<Dp>, private val bottomCorner: State<Dp>) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
-        islandShape(corner.value, notch).createOutline(size, layoutDirection, density)
+        islandShape(topCorner.value, bottomCorner.value).createOutline(size, layoutDirection, density)
 }
 
 /** Заливка острова: цвет из «Цвета капсулы» с непрозрачностью из «Оформления». */

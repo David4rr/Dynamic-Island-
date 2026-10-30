@@ -6,6 +6,13 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.7.9] — 2026-10-30
+
+### 🍏 Zero-Cutoff Unified Morphing & Independent Corner Animation
+- 🌀 **Zero-Cutoff Single-Flow Morphing**: Replaced conflicting `AnimatedContent` scale-out with a unified progress controller (`AppleBiometricGlyph`) where the scanning glyph dissolves smoothly to 0 before the green circle springs from center out, eliminating all clipping and abrupt cutoffs.
+- 🔲 **Independent Corner Spring Interpolation**: Animated top and bottom corners independently (`topCorner` and `bottomCorner`) so the card never flattens to a rectangle at the top cutout during entry, morphing, or exit.
+- 📝 **Smooth Subtitle Crossfade**: Replaced jarring vertical sliding text with seamless Apple-grade crossfade between scanning state and verified status.
+
 ## [1.7.8] — 2026-10-29
 
 ### 🍏 Continuous Apple Squircle & Unclipped Spring Morphing
