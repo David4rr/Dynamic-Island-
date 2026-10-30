@@ -6,6 +6,14 @@ Versioning: the second number (1.5, 1.6…) means new and changed features, the 
 
 > Since 1.6.1 the app and the island speak English (Features → General → Language). Earlier versions were in Russian only, so older entries give the Russian label in brackets.
 
+## [1.8.0] — 2026-10-30
+
+### 🏦 Banking App Anti-Blocking & Security Hardening
+- 🛡️ **Zero-Interference Accessibility Profile**: Stripped `canRetrieveWindowContent` and `canTakeScreenshot` flags (`capabilities == 0`), matching the clean security posture of third-party Android launchers (Nova, Niagara) and eliminating triggers for bank fraud heuristics and Google Play Integrity alerts.
+- 🕵️ **BankGuard Automatic Detection**: Thread-safe detection engine covering Indonesian banks & e-wallets (BCA, Mandiri Livin', BRImo, BNI Wondr, CIMB OCTO Mobile, Jenius, Bank Jago, SeaBank, DANA, GoPay, ShopeePay, OVO), international banking apps, and dynamic heuristics.
+- 👻 **Instant Overlay Vanish & Touch Release**: Dynamic Island vanishes immediately (`View.GONE`) and clears touch interception (`FLAG_NOT_TOUCHABLE`) when a banking application is in the foreground, preventing tapjacking defenses (`filterTouchesWhenObscured`) from blocking screen touches.
+- ⚙️ **User Control Toggle**: Added "Hide in banking apps" toggle in Settings → Banks with localized documentation in English, Indonesian, Russian, Kazakh, and Portuguese.
+
 ## [1.7.9] — 2026-10-30
 
 ### 🍏 Zero-Cutoff Unified Morphing & Independent Corner Animation

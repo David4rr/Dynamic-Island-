@@ -259,9 +259,16 @@ class IslandService : AccessibilityService() {
         }
 
         scope.launch {
-            combine(SettingsRepo.state, IslandBus.landscape, IslandBus.offSchedule, IslandBus.keyguard, IslandBus.displayRotation) { s, land, _, kg, rot ->
-                Placement(s, land, kg, rot)
-            }.collect { p -> applySettings(p.s, p.landscape, p.keyguard, p.rotation) }
+            combine(
+                combine(SettingsRepo.state, IslandBus.foregroundPackage) { s, fg -> s to fg },
+                IslandBus.landscape,
+                IslandBus.offSchedule,
+                IslandBus.keyguard,
+                IslandBus.displayRotation,
+            ) { (s, fg), land, _, kg, rot ->
+                val inBank = s.hideInBankingApps && BankGuard.isBankingApp(this@IslandService, fg)
+                Placement(s, land, kg, rot, inBank)
+            }.collect { p -> applySettings(p.s, p.landscape, p.keyguard, p.rotation, p.inBank) }
         }
 
         // «По расписанию»: проверяем ровно на границах часов и со включением экрана (пока телефон спит, ожидание стоит)
@@ -356,11 +363,10 @@ class IslandService : AccessibilityService() {
         list.isEmpty() || list.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
     }.getOrDefault(true)
 
-    private fun applySettings(s: IslandSettings, landscape: Boolean, keyguard: Boolean, rotation: Int) {
+    private fun applySettings(s: IslandSettings, landscape: Boolean, keyguard: Boolean, rotation: Int, inBank: Boolean = false) {
         IslandType.apply(this, s)
-        visible = s.enabled && !(landscape && s.landscape == LandscapeMode.HIDE) && !IslandBus.offSchedule.value &&
+        visible = s.enabled && !inBank && !(landscape && s.landscape == LandscapeMode.HIDE) && !IslandBus.offSchedule.value &&
             !(keyguard && s.lockScreen == LockScreenMode.HIDE)
-        // «У камеры»: в альбомной ориентации остров повёрнут к краю с камерой; иначе — как обычно, сверху
         val turn = if (landscape && s.landscape == LandscapeMode.CAMERA) rotation else 0
         IslandBus.contentRotation.value = turn
         display?.visibility = if (visible) View.VISIBLE else View.GONE
@@ -603,6 +609,13 @@ class IslandService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         // Шторка, клавиатура и сам остров не меняют «открытое приложение»
         val cls = event.className?.toString().orEmpty()
+        val s = SettingsRepo.current
+        if (s.hideInBankingApps && BankGuard.isBankingApp(this, pkg)) {
+            payReader?.onForeground("", "")
+            setScreenEvents(false)
+            IslandBus.foregroundPackage.value = pkg
+            return
+        }
         BiometricMonitor.onWindowState(event, this)
         if (pkg == "com.android.systemui" || isKeyboard(pkg, cls)) return
         // Окно оплаты из сервисов Google (поднесли телефон к терминалу) — не «открытое приложение»
@@ -721,4 +734,4 @@ private const val TOUCH_MAX_WAIT_MS = 3000L
 private fun Rect.snapped() = Rect(floor(left), floor(top), ceil(right), ceil(bottom))
 
 /** Что определяет, где и виден ли остров: настройки, поворот, экран блокировки. */
-private data class Placement(val s: IslandSettings, val landscape: Boolean, val keyguard: Boolean, val rotation: Int)
+private data class Placement(val s: IslandSettings, val landscape: Boolean, val keyguard: Boolean, val rotation: Int, val inBank: Boolean)

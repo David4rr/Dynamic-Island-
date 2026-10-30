@@ -33,23 +33,6 @@ import kotlinx.coroutines.launch
  * (PayScreenReader), уведомлению банка или СМС с его номера.
  */
 object PayMonitor {
-    /** Известные банки и кошельки — на случай, если система не отдаст список платёжных служб. */
-    private val known = setOf(
-        "com.google.android.apps.walletnfcrel", // Google Кошелёк / Google Pay
-        "com.samsung.android.spay", // Samsung Wallet
-        "ru.nspk.mirpay", // Mir Pay
-        "com.idamob.tinkoff.android", // Т-Банк (T-Pay)
-        "ru.alfabank.mobile.android", // Альфа-Банк (Alfa Pay)
-        "ru.sberbankmobile", // СберБанк (SberPay)
-        "ru.vtb24.mobilebanking.android", // ВТБ
-        "ru.raiffeisennews", // Райффайзен
-        "ru.gazprombank.android.mobilebank.app", // Газпромбанк
-        "ru.sovcomcard.halva.v1", // Халва
-        "ru.mts.money", // МТС Банк
-        "com.paypal.android.p2pmobile",
-        "com.revolut.revolut",
-    )
-
     /** Кошельки: показали сумму у себя на экране — значит, это и есть оплата. */
     private val wallets = setOf(
         "com.google.android.apps.walletnfcrel",
@@ -101,7 +84,7 @@ object PayMonitor {
     private var nfcCheckedAt = 0L
 
     /** Умеет ли приложение платить телефоном: Mir Pay, T-Pay, SberPay, Яндекс Пэй и любые другие. */
-    fun isPayApp(context: Context, pkg: String): Boolean = pkg in known || pkg in nfcApps(context)
+    fun isPayApp(context: Context, pkg: String): Boolean = BankGuard.isBankingApp(context, pkg) || pkg in nfcApps(context)
 
     fun isWallet(pkg: String) = pkg in wallets || pkg == GMS
 

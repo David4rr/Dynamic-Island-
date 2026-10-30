@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AddBox
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,16 +20,17 @@ import com.akira.island.R
 import com.akira.island.core.Controls
 import com.akira.island.core.IslandBus
 import com.akira.island.core.tr
+import com.akira.island.data.SettingsRepo
 import com.akira.island.service.IslandTile
 import com.akira.island.ui.Group
 import com.akira.island.ui.GroupItem
+import com.akira.island.ui.GroupToggle
 import com.akira.island.ui.Page
 import com.akira.island.ui.Perms
 import com.akira.island.ui.Pos
 import com.akira.island.ui.Screen
 import com.akira.island.ui.SectionHeader
 import com.akira.island.ui.Tile
-
 /**
  * «Банк не пускает»: многие банки (K PLUS, GCash и другие) не открываются, пока включена служба спец. возможностей
  * не из Play Маркета, — так они защищаются от мошенников. Остров тут ни при чём, и обойти проверку изнутри него
@@ -38,22 +40,39 @@ import com.akira.island.ui.Tile
 fun BanksScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val running by IslandBus.serviceRunning.collectAsState()
+    val s by SettingsRepo.state.collectAsState()
 
-    Page(tr("Банк не пускает", "Bank app won't open"), onBack,
-        subtitle = tr("Банк пишет, что обнаружено стороннее приложение или спец. возможности?",
-            "Your bank says it detected a third-party app or accessibility service?")) {
+    Page(
+        tr("Банк не пускает", "Bank app won't open"), onBack,
+        subtitle = tr(
+            "Защита от блокировки банками и безопасный режим",
+            "Banking app compatibility & security protection"
+        )
+    ) {
         InfoText(
             tr(
-                "Так банки защищаются от мошенников: пока включена любая служба спец. возможностей не из Play Маркета, " +
-                    "они не пускают. Остров ничего не читает в банке, но проверку обойти нельзя — только выключить " +
-                    "остров на время. Проще всего — плиткой в шторке: нажали — остров выключился, можно в банк; " +
-                    "нажали ещё раз — включаете обратно.",
-                "Banks do this to protect against fraud: while any accessibility service not from Google Play is on, " +
-                    "they won't let you in. The island reads nothing in your bank, but there's no way around the check — " +
-                    "only turning the island off for a while. The easiest way is a tile in quick settings: tap it — the " +
-                    "island turns off and you can use the bank; tap it again to turn the island back on.",
-            ),
+                "Приложения банков блокируют службы спец. возможностей, если они запрашивают чтение экрана (canRetrieveWindowContent) или снимки экрана. В Dynamic Island эти опасные разрешения отключены (как у вашего лончера), а при открытии банка остров автоматически полностью скрывается.",
+                "Banking apps block accessibility services that request screen reading (canRetrieveWindowContent) or screenshots. Dynamic Island uses a clean security profile without these capabilities (just like your launcher), and automatically hides completely while banking apps are open."
+            )
         )
+
+        SectionHeader(tr("Автоматическая защита", "Automatic protection"))
+        Group {
+            GroupToggle(
+                pos = Pos.Single,
+                icon = Icons.Rounded.Shield,
+                title = tr("Скрывать в приложениях банков", "Hide in banking apps"),
+                subtitle = tr(
+                    "Остров исчезает и не перехватывает касания, пока открыт банк",
+                    "The island vanishes and releases all touches while a banking app is open"
+                ),
+                checked = s.hideInBankingApps,
+                color = Tile.Green,
+                onChange = { v -> SettingsRepo.update { copy(hideInBankingApps = v) } }
+            )
+        }
+
+        SectionHeader(tr("Управление службой", "Service controls"))
         Group {
             val tileAsk = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
             if (tileAsk) {
@@ -79,8 +98,10 @@ fun BanksScreen(onBack: () -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             SectionHeader(tr("Плитка в шторке", "The quick settings tile"))
             InfoText(
-                tr("Откройте шторку целиком, нажмите карандаш и перетащите плитку «Остров» к остальным.",
-                    "Open quick settings fully, tap the pencil and drag the Island tile to the others."),
+                tr(
+                    "Откройте шторку целиком, нажмите карандаш и перетащите плитку «Остров» к остальным.",
+                    "Open quick settings fully, tap the pencil and drag the Island tile to the others."
+                ),
             )
         }
     }
